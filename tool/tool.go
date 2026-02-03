@@ -111,6 +111,11 @@ func (t *FuncTool[I, O]) Schema() *schema.Schema {
 
 // Execute 执行工具
 func (t *FuncTool[I, O]) Execute(ctx context.Context, args map[string]any) (Result, error) {
+	// 先验证参数
+	if err := t.Validate(args); err != nil {
+		return NewErrorResult(err), nil
+	}
+
 	// 将 map 转换为输入类型
 	var input I
 	if err := mapToStruct(args, &input); err != nil {
@@ -207,6 +212,11 @@ func (t *SimpleTool) Schema() *schema.Schema {
 
 // Execute 执行工具
 func (t *SimpleTool) Execute(ctx context.Context, args map[string]any) (Result, error) {
+	// 先验证参数
+	if err := t.Validate(args); err != nil {
+		return NewErrorResult(err), nil
+	}
+
 	output, err := t.executeFn(ctx, args)
 	if err != nil {
 		return NewErrorResult(err), nil

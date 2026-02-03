@@ -240,7 +240,7 @@ func (s *Store) Scroll(ctx context.Context, batchSize int, fn func(docs []vector
 		docs := make([]vector.Document, len(scrollResp.Result.Points))
 		for i, point := range scrollResp.Result.Points {
 			doc := vector.Document{
-				ID:        s.fromPointID(point.ID),
+				ID:        s.fromPointID(point.ID, point.Payload),
 				Embedding: point.Vector,
 			}
 
@@ -250,7 +250,7 @@ func (s *Store) Scroll(ctx context.Context, batchSize int, fn func(docs []vector
 				}
 				doc.Metadata = make(map[string]any)
 				for k, v := range point.Payload {
-					if k != "content" && k != "created_at" {
+					if k != "content" && k != "created_at" && k != "_original_id" {
 						doc.Metadata[k] = v
 					}
 				}

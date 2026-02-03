@@ -3,6 +3,7 @@ package schema
 import (
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -206,14 +207,28 @@ func fromStruct(t reflect.Type) *Schema {
 }
 
 func parseInt(s string) int {
-	var v int
-	json.Unmarshal([]byte(s), &v)
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		// 尝试 JSON 解析作为回退（支持带引号的数字）
+		var jv int
+		if json.Unmarshal([]byte(s), &jv) == nil {
+			return jv
+		}
+		return 0 // 解析失败返回 0
+	}
 	return v
 }
 
 func parseFloat(s string) float64 {
-	var v float64
-	json.Unmarshal([]byte(s), &v)
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		// 尝试 JSON 解析作为回退（支持带引号的数字）
+		var jv float64
+		if json.Unmarshal([]byte(s), &jv) == nil {
+			return jv
+		}
+		return 0 // 解析失败返回 0
+	}
 	return v
 }
 

@@ -137,6 +137,7 @@ type Stream struct {
 	done    chan struct{}     // 完成信号通道
 	result  *Result           // 累积的结果
 	mu      sync.Mutex        // 保护并发访问
+	wg      sync.WaitGroup    // 等待 goroutine 退出
 	closed  bool              // 是否已关闭
 	started bool              // 是否已启动处理
 	onChunk func(*Chunk)      // 块处理回调
@@ -269,9 +270,13 @@ func (s *Stream) Start() *Stream {
 		return s
 	}
 	s.started = true
+	s.wg.Add(1)
 	s.mu.Unlock()
 
-	go s.processLoop()
+	go func() {
+		defer s.wg.Done()
+		s.processLoop()
+	}()
 	return s
 }
 
@@ -356,19 +361,21 @@ func (s *Stream) Collect() (*Result, error) {
 }
 
 // Close 关闭流并释放资源
-// 取消上下文，停止后台处理
+// 取消上下文，停止后台处理，等待 goroutine 退出
 // 如果底层 Reader 实现了 io.Closer，也会一并关闭
 // 多次调用是安全的
 func (s *Stream) Close() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if s.closed {
+		s.mu.Unlock()
 		return nil
 	}
 	s.closed = true
-
 	s.cancel()
+	s.mu.Unlock()
+
+	// 等待 processLoop goroutine 退出
+	s.wg.Wait()
 
 	if s.closer != nil {
 		return s.closer.Close()

@@ -158,8 +158,10 @@ func (m *VectorMemory) Save(ctx context.Context, entry Entry) error {
 		if err != nil {
 			return fmt.Errorf("generate embedding: %w", err)
 		}
-		if len(embeddings) > 0 {
+		if len(embeddings) > 0 && len(embeddings[0]) > 0 {
 			entry.Embedding = embeddings[0]
+		} else {
+			return fmt.Errorf("embedder returned empty embedding for content")
 		}
 	}
 
