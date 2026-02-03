@@ -172,8 +172,9 @@ func (s *Store) Add(ctx context.Context, docs []vector.Document) error {
 	points := make([]map[string]any, len(docs))
 	for i, doc := range docs {
 		payload := map[string]any{
-			"content":    doc.Content,
-			"created_at": doc.CreatedAt.Format(time.RFC3339),
+			"content":     doc.Content,
+			"created_at":  doc.CreatedAt.Format(time.RFC3339),
+			"_original_id": doc.ID, // 存储原始 ID 以便还原
 		}
 		// 合并元数据
 		for k, v := range doc.Metadata {
@@ -239,7 +240,7 @@ func (s *Store) Search(ctx context.Context, query []float32, k int, opts ...vect
 	docs := make([]vector.Document, len(searchResp.Result))
 	for i, point := range searchResp.Result {
 		doc := vector.Document{
-			ID:    s.fromPointID(point.ID),
+			ID:    s.fromPointID(point.ID, point.Payload),
 			Score: point.Score,
 		}
 
@@ -253,11 +254,11 @@ func (s *Store) Search(ctx context.Context, query []float32, k int, opts ...vect
 				}
 			}
 
-			// 提取元数据
+			// 提取元数据（排除内部字段）
 			if cfg.IncludeMetadata {
 				doc.Metadata = make(map[string]any)
 				for k, v := range point.Payload {
-					if k != "content" && k != "created_at" {
+					if k != "content" && k != "created_at" && k != "_original_id" {
 						doc.Metadata[k] = v
 					}
 				}
@@ -314,7 +315,7 @@ func (s *Store) Get(ctx context.Context, id string) (*vector.Document, error) {
 
 		doc.Metadata = make(map[string]any)
 		for k, v := range point.Payload {
-			if k != "content" && k != "created_at" {
+			if k != "content" && k != "created_at" && k != "_original_id" {
 				doc.Metadata[k] = v
 			}
 		}
@@ -430,7 +431,15 @@ func (s *Store) toPointID(id string) any {
 }
 
 // fromPointID 从 Qdrant point ID 还原字符串 ID
-func (s *Store) fromPointID(id any) string {
+// 优先从 payload 中的 _original_id 字段获取原始 ID
+func (s *Store) fromPointID(id any, payload map[string]any) string {
+	// 优先使用 payload 中存储的原始 ID
+	if payload != nil {
+		if originalID, ok := payload["_original_id"].(string); ok && originalID != "" {
+			return originalID
+		}
+	}
+	// 回退到 point ID
 	switch v := id.(type) {
 	case float64:
 		return fmt.Sprintf("%d", int64(v))

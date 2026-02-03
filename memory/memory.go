@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -147,7 +148,8 @@ func defaultIDGen() string {
 	idMu.Lock()
 	defer idMu.Unlock()
 	idCounter++
-	return time.Now().Format("20060102150405") + "-" + string(rune('0'+idCounter%10))
+	// 使用纳秒时间戳 + 递增计数器确保唯一性
+	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), idCounter)
 }
 
 // Save 保存单条记忆条目
@@ -219,7 +221,10 @@ func (m *BufferMemory) Search(ctx context.Context, query SearchQuery) ([]Entry, 
 
 	// 分页
 	start := query.Offset
-	if start > len(results) {
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(results) {
 		return nil, nil
 	}
 	end := len(results)

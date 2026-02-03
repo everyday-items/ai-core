@@ -317,14 +317,19 @@ func (r *Router) leastLatencySelect(available []string) (llm.Provider, error) {
 	var minLatency time.Duration
 	var selected string
 
-	for i, name := range available {
+	for _, name := range available {
 		latency := r.latencies[name]
-		if i == 0 || (latency > 0 && latency < minLatency) {
+		// 跳过未记录延迟的 Provider
+		if latency == 0 {
+			continue
+		}
+		if selected == "" || latency < minLatency {
 			minLatency = latency
 			selected = name
 		}
 	}
 
+	// 如果都没有记录延迟，使用第一个
 	if selected == "" {
 		selected = available[0]
 	}
@@ -361,6 +366,11 @@ func (r *Router) weightedSelect(available []string) (llm.Provider, error) {
 	totalWeight := 0
 	for _, name := range available {
 		totalWeight += r.weights[name]
+	}
+
+	// 防止总权重为 0 时 panic
+	if totalWeight == 0 {
+		return r.providers[available[0]], nil
 	}
 
 	target := rand.Intn(totalWeight)
@@ -461,6 +471,7 @@ type HealthChecker struct {
 	router   *Router
 	interval time.Duration
 	stopCh   chan struct{}
+	stopOnce sync.Once
 }
 
 // NewHealthChecker 创建健康检查器
@@ -492,8 +503,11 @@ func (h *HealthChecker) Start(ctx context.Context) {
 }
 
 // Stop 停止健康检查
+// 可以安全地多次调用
 func (h *HealthChecker) Stop() {
-	close(h.stopCh)
+	h.stopOnce.Do(func() {
+		close(h.stopCh)
+	})
 }
 
 // checkAll 检查所有 Provider

@@ -183,6 +183,11 @@ func (m *Meter) RecordError(model string, inputTokens int, err error) {
 // RecordWithDetails 记录请求的完整信息
 // 这是底层方法，其他 Record* 方法都调用此方法
 // 当记录数超过 maxRecords 时，自动删除最旧的 10% 记录
+//
+// 注意：原子计数器（TotalRequests 等）统计的是所有历史请求的累计值，
+// 不会因为记录被清理而减少。如果需要精确匹配 records 的统计，
+// 请使用 StatsInWindow() 或遍历 Records() 自行计算。
+//
 // 线程安全
 func (m *Meter) RecordWithDetails(model string, inputTokens, outputTokens int, latency time.Duration, success bool, errStr string) {
 	record := Record{
@@ -198,6 +203,7 @@ func (m *Meter) RecordWithDetails(model string, inputTokens, outputTokens int, l
 	m.mu.Lock()
 	m.records = append(m.records, record)
 	// 自动清理：当超过限制时，删除最旧的 10% 记录
+	// 原子计数器不减少，保持历史累计统计
 	if m.maxRecords > 0 && len(m.records) > m.maxRecords {
 		deleteCount := m.maxRecords / 10
 		if deleteCount < 1 {
@@ -207,7 +213,7 @@ func (m *Meter) RecordWithDetails(model string, inputTokens, outputTokens int, l
 	}
 	m.mu.Unlock()
 
-	// 更新计数器
+	// 更新计数器（累计统计，不受清理影响）
 	m.totalRequests.Add(1)
 	if success {
 		m.successRequests.Add(1)
