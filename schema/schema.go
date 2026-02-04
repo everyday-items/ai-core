@@ -10,19 +10,21 @@ import (
 // Schema 表示 JSON Schema 定义
 // 用于描述 LLM 工具参数的结构和约束
 type Schema struct {
-	Type        string             `json:"type"`
-	Description string             `json:"description,omitempty"`
-	Properties  map[string]*Schema `json:"properties,omitempty"`
-	Required    []string           `json:"required,omitempty"`
-	Items       *Schema            `json:"items,omitempty"`
-	Enum        []any              `json:"enum,omitempty"`
-	Default     any                `json:"default,omitempty"`
-	Minimum     *float64           `json:"minimum,omitempty"`
-	Maximum     *float64           `json:"maximum,omitempty"`
-	MinLength   *int               `json:"minLength,omitempty"`
-	MaxLength   *int               `json:"maxLength,omitempty"`
-	Pattern     string             `json:"pattern,omitempty"`
-	Format      string             `json:"format,omitempty"`
+	Type                 string             `json:"type"`
+	Title                string             `json:"title,omitempty"`
+	Description          string             `json:"description,omitempty"`
+	Properties           map[string]*Schema `json:"properties,omitempty"`
+	Required             []string           `json:"required,omitempty"`
+	Items                *Schema            `json:"items,omitempty"`
+	AdditionalProperties *Schema            `json:"additionalProperties,omitempty"`
+	Enum                 []any              `json:"enum,omitempty"`
+	Default              any                `json:"default,omitempty"`
+	Minimum              *float64           `json:"minimum,omitempty"`
+	Maximum              *float64           `json:"maximum,omitempty"`
+	MinLength            *int               `json:"minLength,omitempty"`
+	MaxLength            *int               `json:"maxLength,omitempty"`
+	Pattern              string             `json:"pattern,omitempty"`
+	Format               string             `json:"format,omitempty"`
 }
 
 // String 返回 Schema 的 JSON 字符串表示
@@ -251,6 +253,12 @@ func NewBuilder() *Builder {
 // Type 设置 Schema 类型
 func (b *Builder) Type(t string) *Builder {
 	b.schema.Type = t
+	return b
+}
+
+// Title 设置标题
+func (b *Builder) Title(title string) *Builder {
+	b.schema.Title = title
 	return b
 }
 
