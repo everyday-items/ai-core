@@ -142,9 +142,6 @@ func NewVectorMemory(embedder Embedder, opts ...VectorOption) *VectorMemory {
 
 // Save 保存记忆条目
 func (m *VectorMemory) Save(ctx context.Context, entry Entry) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if entry.ID == "" {
 		entry.ID = generateVectorID()
 	}
@@ -152,7 +149,7 @@ func (m *VectorMemory) Save(ctx context.Context, entry Entry) error {
 		entry.CreatedAt = time.Now()
 	}
 
-	// 生成向量嵌入
+	// 在获取锁之前生成向量嵌入（避免持锁调用外部服务导致阻塞）
 	if len(entry.Embedding) == 0 && entry.Content != "" {
 		embeddings, err := m.embedder.Embed(ctx, []string{entry.Content})
 		if err != nil {
@@ -164,6 +161,9 @@ func (m *VectorMemory) Save(ctx context.Context, entry Entry) error {
 			return fmt.Errorf("embedder returned empty embedding for content")
 		}
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	// 保存条目
 	m.entries[entry.ID] = &entry
@@ -235,15 +235,12 @@ func (m *VectorMemory) Get(ctx context.Context, id string) (*Entry, error) {
 
 // Search 搜索记忆条目
 func (m *VectorMemory) Search(ctx context.Context, query SearchQuery) ([]Entry, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	topK := query.Limit
 	if topK <= 0 {
 		topK = m.config.DefaultTopK
 	}
 
-	// 如果提供了查询文本或向量，进行语义搜索
+	// 在获取锁之前生成查询向量（避免持锁调用外部服务导致阻塞）
 	var embedding []float32
 	if len(query.Embedding) > 0 {
 		embedding = query.Embedding
@@ -256,6 +253,9 @@ func (m *VectorMemory) Search(ctx context.Context, query SearchQuery) ([]Entry, 
 			embedding = embeddings[0]
 		}
 	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	if len(embedding) > 0 {
 		// 向量搜索
@@ -412,12 +412,27 @@ func (s *MemoryVectorStore) Add(ctx context.Context, id string, embedding []floa
 
 // Search 搜索相似向量
 func (s *MemoryVectorStore) Search(ctx context.Context, query []float32, topK int) ([]VectorResult, error) {
+	// 检查 context 是否已取消
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var results []VectorResult
 
+	checkInterval := 1000 // 每 1000 个向量检查一次 context
+	count := 0
 	for id, entry := range s.vectors {
+		// 定期检查 context 是否已取消
+		count++
+		if count%checkInterval == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+		}
+
 		score := cosineSimilarity(query, entry.embedding)
 		results = append(results, VectorResult{
 			ID:       id,

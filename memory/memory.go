@@ -2,8 +2,11 @@ package memory
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -141,15 +144,14 @@ func NewBuffer(capacity int, opts ...BufferOption) *BufferMemory {
 	return m
 }
 
-var idCounter int64
-var idMu sync.Mutex
+var idCounter atomic.Uint64
 
 func defaultIDGen() string {
-	idMu.Lock()
-	defer idMu.Unlock()
-	idCounter++
-	// 使用纳秒时间戳 + 递增计数器确保唯一性
-	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), idCounter)
+	// 使用原子计数器 + 随机数确保唯一性，避免时间戳冲突
+	counter := idCounter.Add(1)
+	randomBytes := make([]byte, 4)
+	_, _ = rand.Read(randomBytes)
+	return fmt.Sprintf("mem-%d-%s", counter, hex.EncodeToString(randomBytes))
 }
 
 // Save 保存单条记忆条目
@@ -256,6 +258,18 @@ func matchQuery(entry Entry, query SearchQuery) bool {
 	}
 	if query.Until != nil && entry.CreatedAt.After(*query.Until) {
 		return false
+	}
+
+	// 元数据过滤
+	if len(query.Metadata) > 0 {
+		if entry.Metadata == nil {
+			return false
+		}
+		for k, v := range query.Metadata {
+			if mv, ok := entry.Metadata[k]; !ok || mv != v {
+				return false
+			}
+		}
 	}
 
 	return true

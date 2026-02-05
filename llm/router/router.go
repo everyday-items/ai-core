@@ -301,8 +301,13 @@ func (r *Router) getHealthyProviders() []string {
 
 // roundRobinSelect 轮询选择
 func (r *Router) roundRobinSelect(available []string) (llm.Provider, error) {
-	name := available[r.rrIndex%len(available)]
+	idx := r.rrIndex % len(available)
+	name := available[idx]
+	// 防止溢出：当接近最大值时重置
 	r.rrIndex++
+	if r.rrIndex < 0 {
+		r.rrIndex = 0
+	}
 	return r.providers[name], nil
 }
 

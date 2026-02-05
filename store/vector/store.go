@@ -19,6 +19,8 @@ package vector
 
 import (
 	"context"
+	"math"
+	"sort"
 	"sync"
 	"time"
 )
@@ -207,6 +209,11 @@ func (s *MemoryStore) Add(ctx context.Context, docs []Document) error {
 
 // Search 搜索相似文档
 func (s *MemoryStore) Search(ctx context.Context, query []float32, k int, opts ...SearchOption) ([]Document, error) {
+	// 检查 context 是否已取消
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	cfg := &SearchConfig{
 		IncludeMetadata: true,
 	}
@@ -224,7 +231,17 @@ func (s *MemoryStore) Search(ctx context.Context, query []float32, k int, opts .
 	}
 
 	var results []scored
+	checkInterval := 1000 // 每 1000 个文档检查一次 context
+	count := 0
 	for _, doc := range s.docs {
+		// 定期检查 context 是否已取消
+		count++
+		if count%checkInterval == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+		}
+
 		if len(doc.Embedding) == 0 {
 			continue
 		}
@@ -252,14 +269,10 @@ func (s *MemoryStore) Search(ctx context.Context, query []float32, k int, opts .
 		results = append(results, scored{doc: doc, score: score})
 	}
 
-	// 按分数排序（降序）
-	for i := 0; i < len(results)-1; i++ {
-		for j := i + 1; j < len(results); j++ {
-			if results[j].score > results[i].score {
-				results[i], results[j] = results[j], results[i]
-			}
-		}
-	}
+	// 按分数排序（降序）- 使用标准库 O(n log n)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].score > results[j].score
+	})
 
 	// 返回前 k 个
 	if k > len(results) {
@@ -328,36 +341,24 @@ var _ Store = (*MemoryStore)(nil)
 // ============== 工具函数 ==============
 
 // cosineSimilarity 计算余弦相似度
+// 使用 float64 进行中间计算以获得更好的精度
 func cosineSimilarity(a, b []float32) float32 {
 	if len(a) != len(b) {
 		return 0
 	}
 
-	var dotProduct, normA, normB float32
+	var dotProduct, normA, normB float64
 	for i := range a {
-		dotProduct += a[i] * b[i]
-		normA += a[i] * a[i]
-		normB += b[i] * b[i]
+		dotProduct += float64(a[i]) * float64(b[i])
+		normA += float64(a[i]) * float64(a[i])
+		normB += float64(b[i]) * float64(b[i])
 	}
 
 	if normA == 0 || normB == 0 {
 		return 0
 	}
 
-	return dotProduct / (sqrt(normA) * sqrt(normB))
-}
-
-// sqrt 快速平方根
-func sqrt(x float32) float32 {
-	if x <= 0 {
-		return 0
-	}
-	// 牛顿迭代法
-	z := x / 2
-	for i := 0; i < 10; i++ {
-		z = z - (z*z-x)/(2*z)
-	}
-	return z
+	return float32(dotProduct / (math.Sqrt(normA) * math.Sqrt(normB)))
 }
 
 // matchFilter 检查元数据是否匹配过滤条件

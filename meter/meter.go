@@ -115,6 +115,7 @@ type Meter struct {
 	inputTokens     atomic.Int64 // 总输入 Token
 	outputTokens    atomic.Int64 // 总输出 Token
 	totalLatency    atomic.Int64 // 总延迟（纳秒）
+	latencyCount    atomic.Int64 // 有延迟记录的请求数（用于计算平均值）
 }
 
 // New 创建新的用量统计器
@@ -222,11 +223,17 @@ func (m *Meter) RecordWithDetails(model string, inputTokens, outputTokens int, l
 	m.outputTokens.Add(int64(outputTokens))
 	if latency > 0 {
 		m.totalLatency.Add(int64(latency))
+		m.latencyCount.Add(1)
 	}
 }
 
 // Stats 返回所有请求的聚合统计信息
 // 包含请求数、Token 数、成本和延迟等指标
+//
+// 注意：成本和延迟的详细统计（MinLatency/MaxLatency）需要遍历 records，
+// 当记录被清理后，这些值只反映剩余记录的情况。
+// 如需精确的历史累计统计，请使用原子计数器相关字段。
+//
 // 线程安全
 func (m *Meter) Stats() Stats {
 	m.mu.RLock()
@@ -241,7 +248,7 @@ func (m *Meter) Stats() Stats {
 		TotalTokens:     m.inputTokens.Load() + m.outputTokens.Load(),
 	}
 
-	// 计算成本
+	// 计算成本（遍历剩余记录）
 	for _, r := range m.records {
 		if pricing, ok := m.pricing[r.Model]; ok {
 			stats.EstimatedCost += float64(r.InputTokens) / 1_000_000 * pricing.InputPrice
@@ -249,24 +256,21 @@ func (m *Meter) Stats() Stats {
 		}
 	}
 
-	// 计算延迟统计
-	if stats.TotalRequests > 0 {
-		var totalLatency time.Duration
-		var count int
-		for _, r := range m.records {
-			if r.Latency > 0 {
-				totalLatency += r.Latency
-				count++
-				if stats.MinLatency == 0 || r.Latency < stats.MinLatency {
-					stats.MinLatency = r.Latency
-				}
-				if r.Latency > stats.MaxLatency {
-					stats.MaxLatency = r.Latency
-				}
+	// 计算平均延迟（使用原子计数器，反映全部历史）
+	latencyCount := m.latencyCount.Load()
+	if latencyCount > 0 {
+		stats.AvgLatency = time.Duration(m.totalLatency.Load() / latencyCount)
+	}
+
+	// 计算延迟详细统计（遍历剩余记录）
+	for _, r := range m.records {
+		if r.Latency > 0 {
+			if stats.MinLatency == 0 || r.Latency < stats.MinLatency {
+				stats.MinLatency = r.Latency
 			}
-		}
-		if count > 0 {
-			stats.AvgLatency = totalLatency / time.Duration(count)
+			if r.Latency > stats.MaxLatency {
+				stats.MaxLatency = r.Latency
+			}
 		}
 	}
 
@@ -398,6 +402,7 @@ func (m *Meter) Clear() {
 	m.inputTokens.Store(0)
 	m.outputTokens.Store(0)
 	m.totalLatency.Store(0)
+	m.latencyCount.Store(0)
 }
 
 // Report 生成人类可读的文本报告
