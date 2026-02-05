@@ -132,18 +132,17 @@ func NewSummaryMemory(summarizer Summarizer, opts ...SummaryOption) *SummaryMemo
 
 // Save 保存记忆条目
 func (m *SummaryMemory) Save(ctx context.Context, entry Entry) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+	// 先保存到 buffer（buffer 有自己的锁）
 	if err := m.buffer.Save(ctx, entry); err != nil {
 		return err
 	}
 
-	// 检查是否需要触发摘要
+	// 检查是否需要触发摘要（不持有锁检查，因为 doSummarize 会调用外部服务）
 	if m.shouldSummarize() {
 		if err := m.doSummarize(ctx); err != nil {
 			// 摘要失败不影响保存
 			// 可以记录日志
+			_ = err
 		}
 	}
 
@@ -264,6 +263,7 @@ func (m *SummaryMemory) shouldSummarize() bool {
 }
 
 // doSummarize 执行摘要
+// 注意：调用此方法时不应持有 m.mu 锁，因为它会调用外部服务
 func (m *SummaryMemory) doSummarize(ctx context.Context) error {
 	entries := m.buffer.Entries()
 	if len(entries) <= m.config.KeepRecent {
@@ -272,6 +272,7 @@ func (m *SummaryMemory) doSummarize(ctx context.Context) error {
 
 	// 需要摘要的条目
 	toSummarize := entries[:len(entries)-m.config.KeepRecent]
+	recentEntries := entries[len(entries)-m.config.KeepRecent:]
 
 	// 构建待摘要内容
 	var content strings.Builder
@@ -279,12 +280,19 @@ func (m *SummaryMemory) doSummarize(ctx context.Context) error {
 		content.WriteString(fmt.Sprintf("%s: %s\n", entry.Role, entry.Content))
 	}
 
-	// 生成摘要
+	// 获取当前摘要（需要锁保护读取）
+	m.mu.RLock()
+	currentSummary := m.summary
+	progressiveSummary := m.config.ProgressiveSummary
+	summaryPrompt := m.config.SummaryPrompt
+	m.mu.RUnlock()
+
+	// 生成摘要（不持有锁，因为调用外部服务）
 	var prompt string
-	if m.config.ProgressiveSummary && m.summary != "" {
-		prompt = fmt.Sprintf(progressiveSummaryPrompt, m.summary, content.String())
+	if progressiveSummary && currentSummary != "" {
+		prompt = fmt.Sprintf(progressiveSummaryPrompt, currentSummary, content.String())
 	} else {
-		prompt = fmt.Sprintf(m.config.SummaryPrompt, content.String())
+		prompt = fmt.Sprintf(summaryPrompt, content.String())
 	}
 
 	newSummary, err := m.summarizer.Summarize(ctx, prompt)
@@ -292,12 +300,14 @@ func (m *SummaryMemory) doSummarize(ctx context.Context) error {
 		return fmt.Errorf("summarize failed: %w", err)
 	}
 
-	// 更新摘要
+	// 更新摘要和清理旧条目（需要锁保护写入）
+	m.mu.Lock()
 	m.summary = newSummary
 	m.summaryTime = time.Now()
+	m.mu.Unlock()
 
 	// 清理旧条目，只保留最近的
-	recentEntries := entries[len(entries)-m.config.KeepRecent:]
+	// buffer 有自己的锁，不需要外部加锁
 	m.buffer.Clear(ctx)
 	for _, entry := range recentEntries {
 		m.buffer.Save(ctx, entry)

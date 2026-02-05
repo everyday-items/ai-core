@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -216,7 +217,8 @@ func parseInt(s string) int {
 		if json.Unmarshal([]byte(s), &jv) == nil {
 			return jv
 		}
-		return 0 // 解析失败返回 0
+		log.Printf("schema: warning: failed to parse integer from tag value %q, using 0", s)
+		return 0
 	}
 	return v
 }
@@ -229,7 +231,8 @@ func parseFloat(s string) float64 {
 		if json.Unmarshal([]byte(s), &jv) == nil {
 			return jv
 		}
-		return 0 // 解析失败返回 0
+		log.Printf("schema: warning: failed to parse float from tag value %q, using 0", s)
+		return 0
 	}
 	return v
 }

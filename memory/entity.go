@@ -166,6 +166,12 @@ type EntityConfig struct {
 	// MaxEntities 最大实体数量
 	MaxEntities int
 
+	// MaxRelationsPerEntity 每个实体最大关系数量
+	MaxRelationsPerEntity int
+
+	// MaxSourcesPerEntity 每个实体最大来源数量
+	MaxSourcesPerEntity int
+
 	// MergeThreshold 实体合并相似度阈值
 	MergeThreshold float32
 }
@@ -173,11 +179,13 @@ type EntityConfig struct {
 // DefaultEntityConfig 返回默认配置
 func DefaultEntityConfig() EntityConfig {
 	return EntityConfig{
-		BufferCapacity:  200,
-		AsyncExtraction: true,
-		BatchSize:       5,
-		MaxEntities:     1000,
-		MergeThreshold:  0.8,
+		BufferCapacity:        200,
+		AsyncExtraction:       true,
+		BatchSize:             5,
+		MaxEntities:           1000,
+		MaxRelationsPerEntity: 100,
+		MaxSourcesPerEntity:   500,
+		MergeThreshold:        0.8,
 	}
 }
 
@@ -548,8 +556,11 @@ func (m *EntityMemory) extractEntities(ctx context.Context, entries []Entry) err
 			for k, v := range extracted.Attributes {
 				existing.Attributes[k] = v
 			}
-			// 添加来源
+			// 添加来源（限制最大数量，保留最新的）
 			existing.Sources = append(existing.Sources, entryIDs...)
+			if m.config.MaxSourcesPerEntity > 0 && len(existing.Sources) > m.config.MaxSourcesPerEntity {
+				existing.Sources = existing.Sources[len(existing.Sources)-m.config.MaxSourcesPerEntity:]
+			}
 		} else {
 			// 创建新实体
 			m.entities[normalizedName] = &Entity{
@@ -573,6 +584,10 @@ func (m *EntityMemory) extractEntities(ctx context.Context, entries []Entry) err
 	for _, rel := range result.Relations {
 		sourceName := normalizeEntityName(rel.SourceName)
 		if entity, ok := m.entities[sourceName]; ok {
+			// 检查关系数量限制
+			if m.config.MaxRelationsPerEntity > 0 && len(entity.Relations) >= m.config.MaxRelationsPerEntity {
+				continue
+			}
 			// 检查关系是否已存在
 			exists := false
 			for _, existingRel := range entity.Relations {

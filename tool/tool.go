@@ -269,7 +269,11 @@ func (r *Registry) Get(name string) (Tool, bool) {
 	if !ok {
 		return nil, false
 	}
-	return v.(Tool), true
+	tool, ok := v.(Tool)
+	if !ok {
+		return nil, false
+	}
+	return tool, true
 }
 
 // MustGet 获取工具，如果不存在则 panic
@@ -285,7 +289,9 @@ func (r *Registry) MustGet(name string) Tool {
 func (r *Registry) List() []string {
 	var names []string
 	r.tools.Range(func(key, _ any) bool {
-		names = append(names, key.(string))
+		if name, ok := key.(string); ok {
+			names = append(names, name)
+		}
 		return true
 	})
 	return names
@@ -295,7 +301,9 @@ func (r *Registry) List() []string {
 func (r *Registry) All() []Tool {
 	var tools []Tool
 	r.tools.Range(func(_, value any) bool {
-		tools = append(tools, value.(Tool))
+		if tool, ok := value.(Tool); ok {
+			tools = append(tools, tool)
+		}
 		return true
 	})
 	return tools
