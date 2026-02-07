@@ -36,13 +36,64 @@ const (
 
 // Message 表示聊天消息
 // 与 OpenAI/Claude 等 API 的消息格式兼容
+//
+// 支持两种内容模式：
+//   - 纯文本模式：使用 Content 字段
+//   - 多模态模式：使用 MultiContent 字段（图片+文本混合）
+//
+// 当 MultiContent 不为空时，优先使用 MultiContent（OpenAI vision 等多模态 API 格式）
 type Message struct {
 	// Role 消息角色
 	Role Role `json:"role"`
-	// Content 消息内容
+	// Content 消息内容（纯文本模式）
 	Content string `json:"content"`
 	// Name 可选的发送者名称
 	Name string `json:"name,omitempty"`
+	// MultiContent 多模态内容（图片+文本混合），用于 Vision 等多模态 API
+	// 当此字段不为空时，Content 字段将被忽略
+	MultiContent []ContentPart `json:"multi_content,omitempty"`
+}
+
+// ContentPart 多模态消息的内容部分
+// 对应 OpenAI 的 content array 中的一个元素
+type ContentPart struct {
+	// Type 内容类型："text" 或 "image_url"
+	Type string `json:"type"`
+	// Text 文本内容（当 Type="text" 时使用）
+	Text string `json:"text,omitempty"`
+	// ImageURL 图片 URL（当 Type="image_url" 时使用）
+	ImageURL *ImageURL `json:"image_url,omitempty"`
+}
+
+// ImageURL 图片 URL 定义
+type ImageURL struct {
+	// URL 图片地址，支持 http(s) URL 或 base64 data URI
+	// base64 格式: "data:image/png;base64,iVBORw0KGgo..."
+	URL string `json:"url"`
+	// Detail 图片分析详细程度: "auto"、"low" 或 "high"
+	// 默认 "auto"
+	Detail string `json:"detail,omitempty"`
+}
+
+// NewTextPart 创建文本内容部分
+func NewTextPart(text string) ContentPart {
+	return ContentPart{Type: "text", Text: text}
+}
+
+// NewImageURLPart 创建图片 URL 内容部分
+func NewImageURLPart(url string, detail string) ContentPart {
+	if detail == "" {
+		detail = "auto"
+	}
+	return ContentPart{
+		Type:     "image_url",
+		ImageURL: &ImageURL{URL: url, Detail: detail},
+	}
+}
+
+// HasMultiContent 检查消息是否包含多模态内容
+func (m Message) HasMultiContent() bool {
+	return len(m.MultiContent) > 0
 }
 
 // messageTemplate 内部结构，存储单条消息的模板定义
