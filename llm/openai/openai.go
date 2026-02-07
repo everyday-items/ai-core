@@ -251,9 +251,38 @@ func convertMessages(messages []llm.Message) []map[string]any {
 	result := make([]map[string]any, len(messages))
 	for i, msg := range messages {
 		m := map[string]any{
-			"role":    string(msg.Role),
-			"content": msg.Content,
+			"role": string(msg.Role),
 		}
+
+		// 多模态内容优先
+		if msg.HasMultiContent() {
+			contentParts := make([]map[string]any, len(msg.MultiContent))
+			for j, part := range msg.MultiContent {
+				switch part.Type {
+				case "image_url":
+					p := map[string]any{
+						"type": "image_url",
+					}
+					if part.ImageURL != nil {
+						imgURL := map[string]any{"url": part.ImageURL.URL}
+						if part.ImageURL.Detail != "" {
+							imgURL["detail"] = part.ImageURL.Detail
+						}
+						p["image_url"] = imgURL
+					}
+					contentParts[j] = p
+				default: // "text"
+					contentParts[j] = map[string]any{
+						"type": "text",
+						"text": part.Text,
+					}
+				}
+			}
+			m["content"] = contentParts
+		} else {
+			m["content"] = msg.Content
+		}
+
 		if msg.Name != "" {
 			m["name"] = msg.Name
 		}
