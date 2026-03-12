@@ -513,13 +513,13 @@ func (m *MultiLayerMemory) transferWorkingToShortTerm(ctx context.Context) error
 		m.working.Save(ctx, entry)
 	}
 
-	m.stats.TransferCount++
-	m.stats.LastTransferTime = time.Now()
+	m.updateTransferStats()
 
 	return nil
 }
 
 // transferShortTermToLongTerm 将短期记忆转移到长期记忆
+// 注意：调用前必须持有 m.mu 锁，此方法会临时释放锁以调用外部服务
 func (m *MultiLayerMemory) transferShortTermToLongTerm(ctx context.Context) error {
 	if m.longTerm == nil || m.shortTerm == nil {
 		return nil
@@ -538,13 +538,18 @@ func (m *MultiLayerMemory) transferShortTermToLongTerm(ctx context.Context) erro
 		return err
 	}
 
-	// 强制摘要并清理
+	// ForceSummarize 内部会按需加锁，不会死锁
 	m.shortTerm.ForceSummarize(ctx)
 
-	m.stats.TransferCount++
-	m.stats.LastTransferTime = time.Now()
+	m.updateTransferStats()
 
 	return nil
+}
+
+// updateTransferStats 更新转移统计（调用者必须持有 m.mu 锁）
+func (m *MultiLayerMemory) updateTransferStats() {
+	m.stats.TransferCount++
+	m.stats.LastTransferTime = time.Now()
 }
 
 // Transfer 手动触发记忆转移

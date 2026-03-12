@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/everyday-items/ai-core/llm"
 	"github.com/everyday-items/ai-core/streamx"
@@ -56,7 +57,7 @@ func New(opts ...Option) *Provider {
 	p := &Provider{
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Timeout: 120 * time.Second},
 	}
 
 	// 从环境变量读取

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/everyday-items/ai-core/llm"
 	"github.com/everyday-items/ai-core/streamx"
@@ -65,7 +66,7 @@ func New(apiKey string, opts ...Option) *Provider {
 		apiKey:     apiKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Timeout: 120 * time.Second},
 	}
 
 	for _, opt := range opts {
@@ -91,13 +92,14 @@ func (p *Provider) Complete(ctx context.Context, req llm.CompletionRequest) (*ll
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", p.baseURL, req.Model, p.apiKey)
+	url := fmt.Sprintf("%s/models/%s:generateContent", p.baseURL, req.Model)
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-goog-api-key", p.apiKey)
 
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
@@ -129,13 +131,14 @@ func (p *Provider) Stream(ctx context.Context, req llm.CompletionRequest) (*stre
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/models/%s:streamGenerateContent?key=%s&alt=sse", p.baseURL, req.Model, p.apiKey)
+	url := fmt.Sprintf("%s/models/%s:streamGenerateContent?alt=sse", p.baseURL, req.Model)
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-goog-api-key", p.apiKey)
 
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
@@ -386,12 +389,13 @@ func (p *Provider) EmbedWithModel(ctx context.Context, model string, texts []str
 	}
 	body, _ := json.Marshal(payload)
 
-	url := fmt.Sprintf("%s/models/%s:batchEmbedContents?key=%s", p.baseURL, model, p.apiKey)
+	url := fmt.Sprintf("%s/models/%s:batchEmbedContents", p.baseURL, model)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-goog-api-key", p.apiKey)
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {

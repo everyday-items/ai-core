@@ -236,8 +236,11 @@ func (s *Stream) SetParser(parser ChunkParser) *Stream {
 // OnChunk 设置块处理回调函数
 // 每收到一个有效块时调用此回调
 // 适用于需要实时处理每个块的场景，如流式输出到终端
+// 必须在 Start() 或 Chunks() 之前调用
 // 支持链式调用
 func (s *Stream) OnChunk(fn func(*Chunk)) *Stream {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.onChunk = fn
 	return s
 }
@@ -245,16 +248,22 @@ func (s *Stream) OnChunk(fn func(*Chunk)) *Stream {
 // OnDone 设置流处理完成回调函数
 // 当流正常结束或遇到结束标记时调用
 // 回调参数包含完整的聚合结果
+// 必须在 Start() 或 Chunks() 之前调用
 // 支持链式调用
 func (s *Stream) OnDone(fn func(*Result)) *Stream {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.onDone = fn
 	return s
 }
 
 // OnError 设置错误处理回调函数
 // 当解析出错时调用，但不会中断流处理
+// 必须在 Start() 或 Chunks() 之前调用
 // 支持链式调用
 func (s *Stream) OnError(fn func(error)) *Stream {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.onError = fn
 	return s
 }
@@ -270,12 +279,16 @@ func (s *Stream) Start() *Stream {
 		return s
 	}
 	s.started = true
+	// 快照回调引用，避免 processLoop 中需要加锁读取
+	onChunk := s.onChunk
+	onDone := s.onDone
+	onError := s.onError
 	s.wg.Add(1)
 	s.mu.Unlock()
 
 	go func() {
 		defer s.wg.Done()
-		s.processLoop()
+		s.processLoop(onChunk, onDone, onError)
 	}()
 	return s
 }
@@ -386,7 +399,7 @@ func (s *Stream) Close() error {
 // processLoop 是后台处理的主循环
 // 持续从 reader 读取行，解析为 Chunk，发送到通道
 // 处理 SSE 格式的 "data:" 前缀
-func (s *Stream) processLoop() {
+func (s *Stream) processLoop(onChunk func(*Chunk), onDone func(*Result), onError func(error)) {
 	defer close(s.chunks)
 	defer close(s.done)
 
@@ -402,14 +415,14 @@ func (s *Stream) processLoop() {
 		line, err := s.reader.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
-				s.sendError(err)
+				s.sendErrorWithCallback(err, onError)
 			}
 			s.mu.Lock()
 			s.result.Content = contentBuf.String()
 			result := s.result
 			s.mu.Unlock()
-			if s.onDone != nil {
-				s.onDone(result)
+			if onDone != nil {
+				onDone(result)
 			}
 			return
 		}
@@ -434,12 +447,12 @@ func (s *Stream) processLoop() {
 					s.result.Content = contentBuf.String()
 					result := s.result
 					s.mu.Unlock()
-					if s.onDone != nil {
-						s.onDone(result)
+					if onDone != nil {
+						onDone(result)
 					}
 					return
 				}
-				s.sendError(err)
+				s.sendErrorWithCallback(err, onError)
 				continue
 			}
 
@@ -467,8 +480,8 @@ func (s *Stream) processLoop() {
 				s.mu.Unlock()
 
 				// 回调
-				if s.onChunk != nil {
-					s.onChunk(chunk)
+				if onChunk != nil {
+					onChunk(chunk)
 				}
 
 				// 发送到通道
@@ -485,8 +498,8 @@ func (s *Stream) processLoop() {
 					s.result.Content = contentBuf.String()
 					result := s.result
 					s.mu.Unlock()
-					if s.onDone != nil {
-						s.onDone(result)
+					if onDone != nil {
+						onDone(result)
 					}
 					return
 				}
@@ -495,11 +508,11 @@ func (s *Stream) processLoop() {
 	}
 }
 
-// sendError 发送错误到错误通道并触发回调
+// sendErrorWithCallback 发送错误到错误通道并触发回调
 // 错误通道有缓冲但不阻塞，如果通道满则丢弃
-func (s *Stream) sendError(err error) {
-	if s.onError != nil {
-		s.onError(err)
+func (s *Stream) sendErrorWithCallback(err error, onError func(error)) {
+	if onError != nil {
+		onError(err)
 	}
 	select {
 	case s.errors <- err:

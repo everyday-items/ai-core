@@ -164,9 +164,9 @@ func fromStruct(t reflect.Type) *Schema {
 			propSchema.Enum = enums
 		}
 
-		// 解析 default tag
+		// 解析 default tag（根据字段类型转换为正确的值类型）
 		if defStr := field.Tag.Get("default"); defStr != "" {
-			propSchema.Default = defStr
+			propSchema.Default = parseDefault(defStr, propSchema.Type)
 		}
 
 		// 解析 format tag
@@ -235,6 +235,25 @@ func parseFloat(s string) float64 {
 		return 0
 	}
 	return v
+}
+
+// parseDefault 根据 schema 类型将默认值字符串转换为正确的 Go 类型
+func parseDefault(s string, schemaType string) any {
+	switch schemaType {
+	case "integer":
+		if v, err := strconv.Atoi(s); err == nil {
+			return v
+		}
+	case "number":
+		if v, err := strconv.ParseFloat(s, 64); err == nil {
+			return v
+		}
+	case "boolean":
+		if v, err := strconv.ParseBool(s); err == nil {
+			return v
+		}
+	}
+	return s
 }
 
 // ============== 构建器模式 ==============

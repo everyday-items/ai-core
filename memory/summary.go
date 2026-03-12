@@ -317,9 +317,8 @@ func (m *SummaryMemory) doSummarize(ctx context.Context) error {
 }
 
 // ForceSummarize 强制执行摘要
+// 注意：此方法不持有 m.mu 锁，因为 doSummarize 内部会按需加锁
 func (m *SummaryMemory) ForceSummarize(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	return m.doSummarize(ctx)
 }
 

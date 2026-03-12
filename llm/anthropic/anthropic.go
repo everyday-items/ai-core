@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/everyday-items/ai-core/llm"
 	"github.com/everyday-items/ai-core/streamx"
@@ -63,7 +64,7 @@ func New(apiKey string, opts ...Option) *Provider {
 		apiKey:     apiKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Timeout: 120 * time.Second},
 	}
 
 	for _, opt := range opts {

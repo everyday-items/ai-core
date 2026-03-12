@@ -116,9 +116,9 @@ func TestOf_AnnotatedStruct(t *testing.T) {
 		t.Errorf("len(Properties[role].Enum) = %d, want 3", len(schema.Properties["role"].Enum))
 	}
 
-	// 检查 default
-	if schema.Properties["score"].Default != "0.0" {
-		t.Errorf("Properties[score].Default = %v, want %q", schema.Properties["score"].Default, "0.0")
+	// 检查 default（default 值根据字段类型自动转换：number 类型的 "0.0" 转为 float64(0)）
+	if schema.Properties["score"].Default != float64(0) {
+		t.Errorf("Properties[score].Default = %v, want %v", schema.Properties["score"].Default, float64(0))
 	}
 }
 

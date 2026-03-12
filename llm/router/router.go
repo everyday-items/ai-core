@@ -174,10 +174,8 @@ func (r *Router) Complete(ctx context.Context, req llm.CompletionRequest) (*llm.
 
 	if err != nil {
 		// 尝试降级
-		if r.fallback != "" {
-			if fallbackProvider, ok := r.providers[r.fallback]; ok {
-				return fallbackProvider.Complete(ctx, req)
-			}
+		if fallbackProvider := r.getFallbackProvider(); fallbackProvider != nil {
+			return fallbackProvider.Complete(ctx, req)
 		}
 		return nil, err
 	}
@@ -195,15 +193,26 @@ func (r *Router) Stream(ctx context.Context, req llm.CompletionRequest) (*stream
 	stream, err := provider.Stream(ctx, req)
 	if err != nil {
 		// 尝试降级
-		if r.fallback != "" {
-			if fallbackProvider, ok := r.providers[r.fallback]; ok {
-				return fallbackProvider.Stream(ctx, req)
-			}
+		if fallbackProvider := r.getFallbackProvider(); fallbackProvider != nil {
+			return fallbackProvider.Stream(ctx, req)
 		}
 		return nil, err
 	}
 
 	return stream, nil
+}
+
+// getFallbackProvider 安全获取降级 Provider
+func (r *Router) getFallbackProvider() llm.Provider {
+	if r.fallback == "" {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if p, ok := r.providers[r.fallback]; ok {
+		return p
+	}
+	return nil
 }
 
 // Models 返回所有 Provider 的模型列表

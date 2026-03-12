@@ -316,7 +316,10 @@ func (r *Registry) Remove(name string) {
 
 // Clear 清空所有工具
 func (r *Registry) Clear() {
-	r.tools = sync.Map{}
+	r.tools.Range(func(key, value any) bool {
+		r.tools.Delete(key)
+		return true
+	})
 }
 
 // ============== 全局注册中心 ==============

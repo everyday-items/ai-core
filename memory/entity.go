@@ -244,14 +244,13 @@ func NewEntityMemory(extractor EntityExtractor, opts ...EntityOption) *EntityMem
 // Save 保存记忆条目
 // 保存后会触发实体提取（同步或异步）
 func (m *EntityMemory) Save(ctx context.Context, entry Entry) error {
-	m.mu.Lock()
-
 	// 保存到缓冲区
-	if err := m.buffer.Save(ctx, entry); err != nil {
-		m.mu.Unlock()
+	m.mu.Lock()
+	err := m.buffer.Save(ctx, entry)
+	m.mu.Unlock()
+	if err != nil {
 		return err
 	}
-	m.mu.Unlock()
 
 	// 添加到提取队列
 	m.queueMu.Lock()
