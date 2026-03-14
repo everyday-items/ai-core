@@ -7,7 +7,7 @@ Go 语言的 AI 基础能力库，为 [Hexagon](https://github.com/everyday-item
 - **统一的 LLM 接口** - 一套代码，多家 Provider（OpenAI、Anthropic、DeepSeek、Gemini、通义千问、豆包、Ollama）
 - **流式响应** - 统一的 SSE 流式处理，支持回调和 channel 两种模式
 - **工具系统** - 类型安全的工具定义，从 Go 结构体自动生成 JSON Schema
-- **记忆系统** - 多种记忆策略（缓冲、摘要、向量检索、多层组合）
+- **记忆系统** - 多种记忆策略（缓冲、摘要、向量检索、多层组合、实体记忆）
 - **智能路由** - 多 Provider 路由器，支持轮询、加权、最低延迟、降级等策略
 - **用量追踪** - Token 消耗统计和成本估算
 
@@ -142,7 +142,7 @@ entries, _ := mem.Search(ctx, memory.SearchQuery{Limit: 10})
 | 包 | 说明 |
 |---|------|
 | `llm` | LLM Provider 抽象接口 |
-| `llm/openai` | OpenAI 实现（GPT-4o、o1、o3-mini 等） |
+| `llm/openai` | OpenAI 实现（GPT-4o、GPT-4-Turbo、o1、o3-mini 等） |
 | `llm/anthropic` | Anthropic Claude 实现 |
 | `llm/deepseek` | DeepSeek 实现 |
 | `llm/gemini` | Google Gemini 实现 |
@@ -150,6 +150,7 @@ entries, _ := mem.Search(ctx, memory.SearchQuery{Limit: 10})
 | `llm/ark` | 豆包（字节跳动）实现 |
 | `llm/ollama` | Ollama 本地模型实现 |
 | `llm/router` | 多 Provider 智能路由 |
+| `llm/compat` | Provider 兼容性工具 |
 | `memory` | Agent 记忆系统 |
 | `tool` | 工具定义和注册 |
 | `schema` | JSON Schema 生成 |
@@ -157,18 +158,19 @@ entries, _ := mem.Search(ctx, memory.SearchQuery{Limit: 10})
 | `template` | Prompt 模板引擎 |
 | `tokenizer` | Token 计数估算 |
 | `meter` | 用量统计和成本追踪 |
+| `store/vector` | 向量存储抽象 |
 
 ## 支持的 LLM Provider
 
 | Provider | 模型示例 | 特性 |
 |----------|---------|------|
-| OpenAI | gpt-4o, gpt-4o-mini, o1, o3-mini | 流式、函数调用、视觉 |
-| Anthropic | claude-3-opus, claude-3-sonnet | 流式、函数调用 |
-| DeepSeek | deepseek-chat, deepseek-coder | 流式、函数调用 |
-| Gemini | gemini-pro, gemini-1.5-pro | 流式、函数调用 |
-| 通义千问 | qwen-turbo, qwen-plus, qwen-max | 流式、函数调用 |
-| 豆包 | doubao-pro-* | 流式、函数调用 |
-| Ollama | llama3, mistral, codellama | 本地部署 |
+| OpenAI | gpt-4o, gpt-4o-mini, gpt-4-turbo, o1, o3-mini | 流式、函数调用、视觉 |
+| Anthropic | claude-opus-4, claude-sonnet-4, claude-3.5-sonnet, claude-3.5-haiku | 流式、函数调用、视觉 |
+| DeepSeek | deepseek-chat, deepseek-reasoner | 流式、函数调用 |
+| Gemini | gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash | 流式、函数调用、视觉、Embedding |
+| 通义千问 | qwen-turbo, qwen-plus, qwen-max, qwen-vl-max | 流式、函数调用、视觉 |
+| 豆包 | doubao-pro-*, doubao-lite-*, doubao-vision-pro-* | 流式、函数调用、视觉 |
+| Ollama | llama3.2, llama3.1, qwen2.5, mistral, codellama, llava | 流式、函数调用、视觉 |
 
 ## 路由策略
 
@@ -184,4 +186,4 @@ entries, _ := mem.Search(ctx, memory.SearchQuery{Limit: 10})
 
 ## 许可证
 
-MIT License
+[Apache License 2.0](LICENSE)
