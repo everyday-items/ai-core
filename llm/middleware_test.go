@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -286,12 +287,15 @@ func TestCacheMiddleware(t *testing.T) {
 	}
 }
 
-// inMemoryTestCache 简单的测试用缓存
+// inMemoryTestCache 测试用缓存（并发安全）
 type inMemoryTestCache struct {
+	mu   sync.RWMutex
 	data map[string]*CompletionResponse
 }
 
 func (c *inMemoryTestCache) Get(_ context.Context, key string) (*CompletionResponse, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if resp, ok := c.data[key]; ok {
 		return resp, nil
 	}
@@ -299,6 +303,8 @@ func (c *inMemoryTestCache) Get(_ context.Context, key string) (*CompletionRespo
 }
 
 func (c *inMemoryTestCache) Set(_ context.Context, key string, resp *CompletionResponse) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.data[key] = resp
 	return nil
 }

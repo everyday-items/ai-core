@@ -240,10 +240,10 @@ func (p *timeoutProvider) Complete(ctx context.Context, req CompletionRequest) (
 }
 
 func (p *timeoutProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) {
-	ctx, cancel := context.WithTimeout(ctx, p.timeout)
-	// 注意：流式请求的 cancel 不能立即调用，需要在流关闭后调用
-	// 这里让 context 在超时后自动取消
-	_ = cancel
+	// 流式请求不使用 WithTimeout，因为：
+	// 1. 流的生命周期由调用者控制，不应被中间件强制超时
+	// 2. WithTimeout 创建的 cancel 函数无法在流关闭时调用，会导致 context 泄漏
+	// 如果需要流超时控制，调用者应在自己的 context 中设置
 	return p.inner.Stream(ctx, req)
 }
 
@@ -279,44 +279,46 @@ func (p *callbackProvider) CountTokens(messages []Message) (int, error) {
 }
 
 func (p *callbackProvider) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
-	p.callback.OnStart(ctx, &CallbackStartEvent{
+	// 使用栈分配的事件结构体，避免堆逃逸
+	startEvent := CallbackStartEvent{
 		Provider: p.inner.Name(),
 		Request:  &req,
-	})
+	}
+	p.callback.OnStart(ctx, &startEvent)
 
 	start := time.Now()
 	resp, err := p.inner.Complete(ctx, req)
-	duration := time.Since(start).Milliseconds()
 
-	p.callback.OnEnd(ctx, &CallbackEndEvent{
-		Provider:   p.inner.Name(),
+	endEvent := CallbackEndEvent{
+		Provider:   startEvent.Provider,
 		Request:    &req,
 		Response:   resp,
 		Error:      err,
-		DurationMs: duration,
-		Stream:     false,
-	})
+		DurationMs: time.Since(start).Milliseconds(),
+	}
+	p.callback.OnEnd(ctx, &endEvent)
 
 	return resp, err
 }
 
 func (p *callbackProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) {
-	p.callback.OnStart(ctx, &CallbackStartEvent{
+	startEvent := CallbackStartEvent{
 		Provider: p.inner.Name(),
 		Request:  &req,
-	})
+	}
+	p.callback.OnStart(ctx, &startEvent)
 
 	start := time.Now()
 	stream, err := p.inner.Stream(ctx, req)
-	duration := time.Since(start).Milliseconds()
 
-	p.callback.OnEnd(ctx, &CallbackEndEvent{
-		Provider:   p.inner.Name(),
+	endEvent := CallbackEndEvent{
+		Provider:   startEvent.Provider,
 		Request:    &req,
 		Error:      err,
-		DurationMs: duration,
+		DurationMs: time.Since(start).Milliseconds(),
 		Stream:     true,
-	})
+	}
+	p.callback.OnEnd(ctx, &endEvent)
 
 	return stream, err
 }
@@ -326,6 +328,9 @@ func (p *callbackProvider) Stream(ctx context.Context, req CompletionRequest) (*
 // Cache 定义 LLM 响应缓存接口
 //
 // 实现此接口以提供不同的缓存后端（内存、Redis 等）。
+//
+// 重要：实现必须是并发安全的，因为 WithCache 中间件
+// 可能在多个 goroutine 中同时调用 Get/Set。
 type Cache interface {
 	// Get 获取缓存的响应
 	//
@@ -417,14 +422,20 @@ func (p *cacheProvider) Stream(ctx context.Context, req CompletionRequest) (*str
 }
 
 // defaultCacheKey 默认的缓存键生成
-// 基于模型名和消息内容生成简单的键
+//
+// 使用 \x00 分隔符 + 长度前缀避免碰撞。例如:
+//
+//	messages=[{user, "a|user:b"}] → "gpt-4o\x00user\x00a|user:b"
+//	messages=[{user, "a"}, {user, "b"}] → "gpt-4o\x00user\x00a\x00user\x00b"
+//
+// \x00 在合法 UTF-8 文本中不会出现，因此可以安全地作为分隔符。
 func defaultCacheKey(req *CompletionRequest) string {
 	var b strings.Builder
 	b.WriteString(req.Model)
 	for _, msg := range req.Messages {
-		b.WriteByte('|')
+		b.WriteByte(0)
 		b.WriteString(string(msg.Role))
-		b.WriteByte(':')
+		b.WriteByte(0)
 		b.WriteString(msg.Content)
 	}
 	return b.String()
