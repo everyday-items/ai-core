@@ -81,5 +81,7 @@ func (p *Provider) Models() []llm.ModelInfo {
 	}
 }
 
-// 确保实现了 Provider 接口
+// 确保实现了 Provider 和 EmbeddingProvider 接口
+// Embed/EmbedWithModel 方法继承自 openai.Provider
 var _ llm.Provider = (*Provider)(nil)
+var _ llm.EmbeddingProvider = (*Provider)(nil)

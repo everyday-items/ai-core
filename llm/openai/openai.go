@@ -244,6 +244,29 @@ func (p *Provider) buildRequestBody(req llm.CompletionRequest, stream bool) ([]b
 		payload["user"] = req.User
 	}
 
+	// ResponseFormat 支持
+	if req.ResponseFormat != nil {
+		switch req.ResponseFormat.Type {
+		case "json_object":
+			payload["response_format"] = map[string]any{"type": "json_object"}
+		case "json_schema":
+			if req.ResponseFormat.JSONSchema != nil {
+				rf := map[string]any{
+					"type": "json_schema",
+					"json_schema": map[string]any{
+						"name":   req.ResponseFormat.JSONSchema.Name,
+						"schema": req.ResponseFormat.JSONSchema.Schema,
+						"strict": req.ResponseFormat.JSONSchema.Strict,
+					},
+				}
+				if req.ResponseFormat.JSONSchema.Description != "" {
+					rf["json_schema"].(map[string]any)["description"] = req.ResponseFormat.JSONSchema.Description
+				}
+				payload["response_format"] = rf
+			}
+		}
+	}
+
 	return json.Marshal(payload)
 }
 
@@ -352,4 +375,5 @@ func (p *Provider) parseResponse(resp *openAIResponse) *llm.CompletionResponse {
 }
 
 // 确保实现了 Provider 接口
+// EmbeddingProvider 接口验证在 embedding.go 中
 var _ llm.Provider = (*Provider)(nil)

@@ -260,6 +260,20 @@ func (p *Provider) buildRequestBody(req llm.CompletionRequest) ([]byte, error) {
 		generationConfig["stopSequences"] = req.Stop
 	}
 
+	// ResponseFormat 支持
+	// Gemini 通过 responseMimeType 和 responseSchema 控制输出格式
+	if req.ResponseFormat != nil {
+		switch req.ResponseFormat.Type {
+		case "json_object":
+			generationConfig["responseMimeType"] = "application/json"
+		case "json_schema":
+			generationConfig["responseMimeType"] = "application/json"
+			if req.ResponseFormat.JSONSchema != nil && req.ResponseFormat.JSONSchema.Schema != nil {
+				generationConfig["responseSchema"] = req.ResponseFormat.JSONSchema.Schema
+			}
+		}
+	}
+
 	if len(generationConfig) > 0 {
 		payload["generationConfig"] = generationConfig
 	}

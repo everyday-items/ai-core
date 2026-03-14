@@ -304,6 +304,11 @@ func (p *Provider) buildRequestBody(req llm.CompletionRequest, stream bool) ([]b
 		payload["stop"] = req.Stop
 	}
 
+	// ResponseFormat 支持（兼容 OpenAI 格式）
+	if req.ResponseFormat != nil && req.ResponseFormat.Type == "json_object" {
+		payload["response_format"] = map[string]any{"type": "json_object"}
+	}
+
 	return json.Marshal(payload)
 }
 

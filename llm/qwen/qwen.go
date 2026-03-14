@@ -263,6 +263,11 @@ func (p *Provider) buildRequestBody(req llm.CompletionRequest, stream bool) ([]b
 		}
 	}
 
+	// ResponseFormat 支持（兼容 OpenAI 格式）
+	if req.ResponseFormat != nil && req.ResponseFormat.Type == "json_object" {
+		payload["response_format"] = map[string]any{"type": "json_object"}
+	}
+
 	return json.Marshal(payload)
 }
 
@@ -342,4 +347,5 @@ func (p *Provider) parseResponse(resp *qwenResponse) *llm.CompletionResponse {
 }
 
 // 确保实现了 Provider 接口
+// EmbeddingProvider 接口验证在 embedding.go 中
 var _ llm.Provider = (*Provider)(nil)

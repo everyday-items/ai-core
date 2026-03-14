@@ -322,6 +322,15 @@ func (p *Provider) buildRequestBody(req llm.CompletionRequest, stream bool) ([]b
 		payload["tools"] = req.Tools
 	}
 
+	// ResponseFormat 支持
+	// Ollama 使用 format 参数指定输出格式
+	if req.ResponseFormat != nil {
+		switch req.ResponseFormat.Type {
+		case "json_object", "json_schema":
+			payload["format"] = "json"
+		}
+	}
+
 	return json.Marshal(payload)
 }
 
@@ -428,4 +437,5 @@ func (p *Provider) PullModel(ctx context.Context, model string) error {
 }
 
 // 确保实现了 Provider 接口
+// EmbeddingProvider 接口验证在 embedding.go 中
 var _ llm.Provider = (*Provider)(nil)

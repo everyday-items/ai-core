@@ -133,6 +133,51 @@ type CompletionRequest struct {
 
 	// Metadata 额外元数据
 	Metadata map[string]any `json:"metadata,omitempty"`
+
+	// ResponseFormat 响应格式约束
+	//
+	// 用于请求 LLM 以特定格式输出，如 JSON 模式。
+	// 不同 Provider 的支持程度不同：
+	//   - OpenAI: 支持 "json_object" 和 "json_schema"
+	//   - DeepSeek: 支持 "json_object"（兼容 OpenAI）
+	//   - Gemini: 通过 responseMimeType 支持 "application/json"
+	//   - Anthropic: 不原生支持，可通过 tool_use 模拟
+	//   - Qwen/Ark: 支持 "json_object"（兼容 OpenAI）
+	//   - Ollama: 通过 format 参数支持 "json"
+	//
+	// 不支持的 Provider 会忽略此字段，上层应降级为 Prompt 工程
+	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
+}
+
+// ResponseFormat 响应格式定义
+//
+// 用于约束 LLM 的输出格式，主要支持 JSON 模式和结构化输出。
+type ResponseFormat struct {
+	// Type 格式类型
+	//   - "text": 普通文本输出（默认）
+	//   - "json_object": JSON 对象输出
+	//   - "json_schema": 带 Schema 约束的 JSON 输出（仅 OpenAI GPT-4o+ 支持）
+	Type string `json:"type"`
+
+	// JSONSchema 结构化输出的 JSON Schema 定义
+	// 仅当 Type 为 "json_schema" 时有效
+	JSONSchema *ResponseFormatJSONSchema `json:"json_schema,omitempty"`
+}
+
+// ResponseFormatJSONSchema 结构化 JSON Schema 定义
+type ResponseFormatJSONSchema struct {
+	// Name Schema 名称
+	Name string `json:"name"`
+
+	// Description Schema 描述
+	Description string `json:"description,omitempty"`
+
+	// Schema JSON Schema 定义
+	Schema *Schema `json:"schema"`
+
+	// Strict 是否启用严格模式
+	// 启用后 LLM 输出必须严格匹配 Schema
+	Strict bool `json:"strict,omitempty"`
 }
 
 // CompletionResponse 表示补全响应
