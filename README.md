@@ -1,5 +1,7 @@
 # ai-core
 
+[English](README_EN.md) | 中文
+
 Go 语言的 AI 基础能力库，为 [Hexagon](https://github.com/hexagon-codes/hexagon) AI Agent 框架提供核心支持。
 
 ## 特性
