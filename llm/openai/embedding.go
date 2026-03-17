@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/everyday-items/ai-core/llm"
+	"github.com/hexagon-codes/ai-core/llm"
 )
 
 // 默认 Embedding 模型和维度

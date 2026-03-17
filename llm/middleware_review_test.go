@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/everyday-items/ai-core/streamx"
+	"github.com/hexagon-codes/ai-core/streamx"
 )
 
 // ========== 并发竞态测试 ==========

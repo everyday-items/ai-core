@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/everyday-items/ai-core/llm"
+	"github.com/hexagon-codes/ai-core/llm"
 )
 
 // ============== 内存缓存实现 ==============

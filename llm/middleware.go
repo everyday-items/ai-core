@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/everyday-items/ai-core/streamx"
+	"github.com/hexagon-codes/ai-core/streamx"
 )
 
 // isRetryableError 判断错误是否值得重试

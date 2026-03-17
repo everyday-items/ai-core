@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/everyday-items/ai-core/streamx"
+	"github.com/hexagon-codes/ai-core/streamx"
 )
 
 // ============== BUG-1: defaultCacheKey 忽略关键字段导致缓存错误命中 ==============

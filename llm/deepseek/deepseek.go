@@ -4,8 +4,8 @@ package deepseek
 import (
 	"os"
 
-	"github.com/everyday-items/ai-core/llm"
-	"github.com/everyday-items/ai-core/llm/openai"
+	"github.com/hexagon-codes/ai-core/llm"
+	"github.com/hexagon-codes/ai-core/llm/openai"
 )
 
 const (

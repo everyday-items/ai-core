@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/everyday-items/ai-core/schema"
+	"github.com/hexagon-codes/ai-core/schema"
 )
 
 // Tool 定义工具的核心接口

@@ -11,8 +11,8 @@ import (
 	"sync/atomic" //nolint:depguard // used by atomic.Int64 in Router struct
 	"time"
 
-	"github.com/everyday-items/ai-core/llm"
-	"github.com/everyday-items/ai-core/streamx"
+	"github.com/hexagon-codes/ai-core/llm"
+	"github.com/hexagon-codes/ai-core/streamx"
 )
 
 // Strategy 路由策略

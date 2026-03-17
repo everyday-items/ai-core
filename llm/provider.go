@@ -3,9 +3,9 @@ package llm
 import (
 	"context"
 
-	"github.com/everyday-items/ai-core/schema"
-	"github.com/everyday-items/ai-core/streamx"
-	"github.com/everyday-items/ai-core/template"
+	"github.com/hexagon-codes/ai-core/schema"
+	"github.com/hexagon-codes/ai-core/streamx"
+	"github.com/hexagon-codes/ai-core/template"
 )
 
 // 重新导出 template 包的核心类型，便于使用

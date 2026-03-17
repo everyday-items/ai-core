@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/everyday-items/ai-core/streamx"
+	"github.com/hexagon-codes/ai-core/streamx"
 )
 
 // mockProvider 模拟 Provider 用于测试

@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/everyday-items/ai-core/llm"
-	"github.com/everyday-items/ai-core/streamx"
+	"github.com/hexagon-codes/ai-core/llm"
+	"github.com/hexagon-codes/ai-core/streamx"
 )
 
 // ============== 任务类型定义 ==============

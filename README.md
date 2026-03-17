@@ -1,6 +1,6 @@
 # ai-core
 
-Go 语言的 AI 基础能力库，为 [Hexagon](https://github.com/everyday-items/hexagon) AI Agent 框架提供核心支持。
+Go 语言的 AI 基础能力库，为 [Hexagon](https://github.com/hexagon-codes/hexagon) AI Agent 框架提供核心支持。
 
 ## 特性
 
@@ -16,7 +16,7 @@ Go 语言的 AI 基础能力库，为 [Hexagon](https://github.com/everyday-item
 ## 安装
 
 ```bash
-go get github.com/everyday-items/ai-core
+go get github.com/hexagon-codes/ai-core
 ```
 
 ## 快速开始
@@ -31,8 +31,8 @@ import (
     "fmt"
     "os"
 
-    "github.com/everyday-items/ai-core/llm"
-    "github.com/everyday-items/ai-core/llm/openai"
+    "github.com/hexagon-codes/ai-core/llm"
+    "github.com/hexagon-codes/ai-core/llm/openai"
 )
 
 func main() {
@@ -71,7 +71,7 @@ for chunk := range stream.Chunks() {
 ### 工具调用
 
 ```go
-import "github.com/everyday-items/ai-core/tool"
+import "github.com/hexagon-codes/ai-core/tool"
 
 type WeatherInput struct {
     City string `json:"city" desc:"城市名称" required:"true"`
@@ -109,8 +109,8 @@ if resp.HasToolCalls() {
 
 ```go
 import (
-    "github.com/everyday-items/ai-core/llm"
-    "github.com/everyday-items/ai-core/llm/cache"
+    "github.com/hexagon-codes/ai-core/llm"
+    "github.com/hexagon-codes/ai-core/llm/cache"
 )
 
 // 组合多个中间件：重试 → 限流 → 缓存
@@ -128,9 +128,9 @@ resp, _ := enhanced.Complete(ctx, req)
 
 ```go
 import (
-    "github.com/everyday-items/ai-core/llm/router"
-    "github.com/everyday-items/ai-core/llm/openai"
-    "github.com/everyday-items/ai-core/llm/deepseek"
+    "github.com/hexagon-codes/ai-core/llm/router"
+    "github.com/hexagon-codes/ai-core/llm/openai"
+    "github.com/hexagon-codes/ai-core/llm/deepseek"
 )
 
 r := router.NewBuilder().
@@ -148,7 +148,7 @@ resp, _ := r.Complete(ctx, req)
 ### 记忆系统
 
 ```go
-import "github.com/everyday-items/ai-core/memory"
+import "github.com/hexagon-codes/ai-core/memory"
 
 // 缓冲记忆 — 保留最近 N 条消息
 buf := memory.NewBuffer(100)

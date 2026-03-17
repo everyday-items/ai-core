@@ -28,7 +28,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/everyday-items/ai-core/store/vector"
+	"github.com/hexagon-codes/ai-core/store/vector"
 )
 
 // Config Qdrant 配置

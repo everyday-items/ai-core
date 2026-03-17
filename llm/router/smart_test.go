@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/everyday-items/ai-core/llm"
+	"github.com/hexagon-codes/ai-core/llm"
 )
 
 // mockProvider 模拟 LLM Provider

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/everyday-items/ai-core/llm"
-	"github.com/everyday-items/ai-core/streamx"
+	"github.com/hexagon-codes/ai-core/llm"
+	"github.com/hexagon-codes/ai-core/streamx"
 )
 
 // ============================================================================

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/everyday-items/ai-core/store/vector"
-	"github.com/everyday-items/toolkit/util/retry"
+	"github.com/hexagon-codes/ai-core/store/vector"
+	"github.com/hexagon-codes/toolkit/util/retry"
 )
 
 // BatchConfig 批量操作配置

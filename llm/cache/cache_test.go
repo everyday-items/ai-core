@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/everyday-items/ai-core/llm"
+	"github.com/hexagon-codes/ai-core/llm"
 )
 
 func TestMemoryCache_GetSet(t *testing.T) {
