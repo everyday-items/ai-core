@@ -5,11 +5,13 @@ Go 语言的 AI 基础能力库，为 [Hexagon](https://github.com/everyday-item
 ## 特性
 
 - **统一的 LLM 接口** - 一套代码，多家 Provider（OpenAI、Anthropic、DeepSeek、Gemini、通义千问、豆包、Ollama）
+- **中间件机制** - 可组合的 Provider 装饰器：重试（含不可重试错误检测）、限流、超时、回调、缓存
 - **流式响应** - 统一的 SSE 流式处理，支持回调和 channel 两种模式
 - **工具系统** - 类型安全的工具定义，从 Go 结构体自动生成 JSON Schema
 - **记忆系统** - 多种记忆策略（缓冲、摘要、向量检索、多层组合、实体记忆）
-- **智能路由** - 多 Provider 路由器，支持轮询、加权、最低延迟、降级等策略
-- **用量追踪** - Token 消耗统计和成本估算
+- **智能路由** - 多 Provider 路由器，支持轮询、加权、最低延迟、降级等策略；任务感知智能路由
+- **用量追踪** - Token 消耗统计和成本估算，支持请求追踪器
+- **结构化输出** - ResponseFormat 支持 JSON 模式和 JSON Schema 约束
 
 ## 安装
 
@@ -103,6 +105,25 @@ if resp.HasToolCalls() {
 }
 ```
 
+### 中间件
+
+```go
+import (
+    "github.com/everyday-items/ai-core/llm"
+    "github.com/everyday-items/ai-core/llm/cache"
+)
+
+// 组合多个中间件：重试 → 限流 → 缓存
+enhanced := llm.Chain(provider,
+    llm.WithRetry(3, time.Second),       // 指数退避重试（自动跳过 401/403 等不可重试错误）
+    llm.WithRateLimit(10),               // 10 QPS 令牌桶限流
+    llm.WithTimeout(30 * time.Second),   // 请求超时（不影响 Stream）
+    llm.WithCache(cache.NewMemoryCache(), nil), // LRU 内存缓存
+)
+
+resp, _ := enhanced.Complete(ctx, req)
+```
+
 ### 多 Provider 路由
 
 ```go
@@ -117,6 +138,7 @@ r := router.NewBuilder().
     Add("deepseek", deepseek.New(deepseekKey)).
     Strategy(router.StrategyLeastLatency).
     Fallback("deepseek").
+    EnableHealthCheck().
     Build()
 
 // 使用路由器（自动选择最优 Provider）
@@ -128,20 +150,30 @@ resp, _ := r.Complete(ctx, req)
 ```go
 import "github.com/everyday-items/ai-core/memory"
 
-mem := memory.NewBuffer(100) // 保留最近 100 条消息
+// 缓冲记忆 — 保留最近 N 条消息
+buf := memory.NewBuffer(100)
+buf.Save(ctx, memory.NewUserEntry("你好"))
+buf.Save(ctx, memory.NewAssistantEntry("你好！有什么可以帮助你的？"))
 
-mem.Save(ctx, memory.NewUserEntry("你好"))
-mem.Save(ctx, memory.NewAssistantEntry("你好！有什么可以帮助你的？"))
+// 摘要记忆 — 超过阈值自动压缩为摘要
+sum := memory.NewSummaryMemory(summarizer, memory.WithMaxEntries(20))
 
-// 检索最近的消息
-entries, _ := mem.Search(ctx, memory.SearchQuery{Limit: 10})
+// 向量记忆 — 语义检索
+vec := memory.NewVectorMemory(embedder)
+results, _ := vec.SemanticSearch(ctx, "之前讨论的架构方案", 5)
+
+// 多层记忆 — 工作记忆 → 短期记忆 → 长期记忆
+multi := memory.NewMultiLayerMemory(
+    memory.WithSummarizer(summarizer),
+    memory.WithEmbedder(embedder),
+)
 ```
 
 ## 包结构
 
 | 包 | 说明 |
 |---|------|
-| `llm` | LLM Provider 抽象接口 |
+| `llm` | LLM Provider 抽象接口、中间件（重试/限流/超时/回调/缓存） |
 | `llm/openai` | OpenAI 实现（GPT-4o、GPT-4-Turbo、o1、o3-mini 等） |
 | `llm/anthropic` | Anthropic Claude 实现 |
 | `llm/deepseek` | DeepSeek 实现 |
@@ -149,16 +181,16 @@ entries, _ := mem.Search(ctx, memory.SearchQuery{Limit: 10})
 | `llm/qwen` | 通义千问实现 |
 | `llm/ark` | 豆包（字节跳动）实现 |
 | `llm/ollama` | Ollama 本地模型实现 |
-| `llm/router` | 多 Provider 智能路由 |
-| `llm/compat` | Provider 兼容性工具 |
-| `memory` | Agent 记忆系统 |
+| `llm/router` | 多 Provider 智能路由、任务感知路由（SmartRouter） |
+| `llm/cache` | LRU 内存缓存实现（支持 TTL） |
+| `memory` | Agent 记忆系统（缓冲/摘要/向量/多层/实体） |
 | `tool` | 工具定义和注册 |
-| `schema` | JSON Schema 生成 |
-| `streamx` | 流式响应统一抽象 |
-| `template` | Prompt 模板引擎 |
+| `schema` | JSON Schema 生成（从 Go 结构体反射） |
+| `streamx` | 流式响应统一抽象（OpenAI/Claude/Gemini 格式） |
+| `template` | Prompt 模板引擎（支持多模态） |
 | `tokenizer` | Token 计数估算 |
 | `meter` | 用量统计和成本追踪 |
-| `store/vector` | 向量存储抽象 |
+| `store/vector` | 向量存储抽象（内存/Qdrant） |
 
 ## 支持的 LLM Provider
 
@@ -183,6 +215,14 @@ entries, _ := mem.Search(ctx, memory.SearchQuery{Limit: 10})
 | `StrategyWeighted` | 按权重分发 |
 | `StrategyFallback` | 按顺序尝试，失败后降级 |
 | `StrategyModelMatch` | 根据请求的模型自动匹配 Provider |
+
+## 设计原则
+
+- **零外部依赖** — 仅使用 Go 标准库，`go.mod` 无第三方依赖
+- **接口驱动** — Provider、Memory、Tool、VectorStore 等核心类型均为接口，便于测试和扩展
+- **并发安全** — 所有公共类型均通过 `sync.RWMutex` 或 `atomic` 保证线程安全
+- **函数式选项** — 统一使用 `With*()` 选项模式配置组件
+- **外部调用不持锁** — 调用 LLM/Embedder 等外部服务前释放锁，避免阻塞
 
 ## 许可证
 
