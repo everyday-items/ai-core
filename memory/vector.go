@@ -2,10 +2,13 @@ package memory
 
 import (
 	"context"
+	cryptoRand "crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -305,6 +308,9 @@ func (m *VectorMemory) Search(ctx context.Context, query SearchQuery) ([]Entry, 
 
 	// 分页
 	start := query.Offset
+	if start < 0 {
+		start = 0
+	}
 	if start > len(entries) {
 		return nil, nil
 	}
@@ -371,9 +377,16 @@ func (m *VectorMemory) Stats() MemoryStats {
 	return stats
 }
 
+// vectorIDCounter 用于生成唯一向量 ID 的原子计数器
+var vectorIDCounter atomic.Uint64
+
 // generateVectorID 生成向量记忆 ID
+// 使用原子计数器 + 随机数确保高并发下的唯一性
 func generateVectorID() string {
-	return fmt.Sprintf("vec-%d", time.Now().UnixNano())
+	counter := vectorIDCounter.Add(1)
+	randomBytes := make([]byte, 4)
+	_, _ = cryptoRand.Read(randomBytes)
+	return fmt.Sprintf("vec-%d-%s", counter, hex.EncodeToString(randomBytes))
 }
 
 // ============== 内存向量存储 ==============

@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sort"
 	"sync"
+	"sync/atomic" //nolint:depguard // used by atomic.Int64 in Router struct
 	"time"
 
 	"github.com/everyday-items/ai-core/llm"
@@ -45,7 +47,7 @@ type Router struct {
 	healthy      map[string]bool
 	latencies    map[string]time.Duration
 	mu           sync.RWMutex
-	rrIndex      int
+	rrIndex      atomic.Int64
 }
 
 // Option 是 Router 的配置选项
@@ -110,8 +112,12 @@ func (r *Router) Register(name string, provider llm.Provider) *Router {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// 检查是否已注册，避免 providerList 重复
+	if _, exists := r.providers[name]; !exists {
+		r.providerList = append(r.providerList, name)
+	}
+
 	r.providers[name] = provider
-	r.providerList = append(r.providerList, name)
 	r.healthy[name] = true
 
 	// 默认权重为 1
@@ -175,7 +181,10 @@ func (r *Router) Complete(ctx context.Context, req llm.CompletionRequest) (*llm.
 	if err != nil {
 		// 尝试降级
 		if fallbackProvider := r.getFallbackProvider(); fallbackProvider != nil {
-			return fallbackProvider.Complete(ctx, req)
+			fbStart := time.Now()
+			fbResp, fbErr := fallbackProvider.Complete(ctx, req)
+			r.recordLatency(r.getProviderName(fallbackProvider), time.Since(fbStart))
+			return fbResp, fbErr
 		}
 		return nil, err
 	}
@@ -251,8 +260,8 @@ func (r *Router) CountTokens(messages []llm.Message) (int, error) {
 
 // selectProvider 根据策略选择 Provider
 func (r *Router) selectProvider(req llm.CompletionRequest) (llm.Provider, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	if len(r.providerList) == 0 {
 		return nil, errors.New("no providers registered")
@@ -309,14 +318,16 @@ func (r *Router) getHealthyProviders() []string {
 }
 
 // roundRobinSelect 轮询选择
+// 使用 atomic 操作递增 rrIndex，无需写锁
 func (r *Router) roundRobinSelect(available []string) (llm.Provider, error) {
-	idx := r.rrIndex % len(available)
-	name := available[idx]
-	// 防止溢出：当接近最大值时重置
-	r.rrIndex++
-	if r.rrIndex < 0 {
-		r.rrIndex = 0
+	n := int64(len(available))
+	idx := r.rrIndex.Add(1) - 1
+	// 取模选择，防止负值
+	if idx < 0 {
+		r.rrIndex.Store(0)
+		idx = 0
 	}
+	name := available[idx%n]
 	return r.providers[name], nil
 }
 
@@ -614,16 +625,20 @@ func CreateDefaultRouter(providers map[string]llm.Provider) *Router {
 		Strategy(StrategyModelMatch).
 		EnableHealthCheck()
 
-	for name, provider := range providers {
-		builder.Add(name, provider)
+	// 排序 provider 名称以确保确定性行为
+	names := make([]string, 0, len(providers))
+	for name := range providers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		builder.Add(name, providers[name])
 	}
 
-	// 设置降级顺序（如果有多个 Provider）
-	if len(providers) > 1 {
-		for name := range providers {
-			builder.Fallback(name)
-			break
-		}
+	// 设置降级顺序：使用排序后的第一个 Provider
+	if len(names) > 1 {
+		builder.Fallback(names[0])
 	}
 
 	return builder.Build()

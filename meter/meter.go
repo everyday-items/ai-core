@@ -578,6 +578,7 @@ type Tracker struct {
 	model       string        // 模型名称
 	inputTokens int           // 输入 Token 数
 	startTime   time.Time     // 请求开始时间
+	done        atomic.Bool   // 防止多次调用 Done/Error
 }
 
 // NewTracker 创建请求追踪器
@@ -599,12 +600,20 @@ func (t *Tracker) SetInputTokens(n int) *Tracker {
 
 // Done 完成追踪并记录成功请求
 // 自动计算从创建 Tracker 到调用 Done 的延迟
+// 多次调用是安全的，只有首次调用会记录
 func (t *Tracker) Done(outputTokens int) {
+	if !t.done.CompareAndSwap(false, true) {
+		return // 已经调用过，忽略重复调用
+	}
 	latency := time.Since(t.startTime)
 	t.meter.RecordWithLatency(t.model, t.inputTokens, outputTokens, latency)
 }
 
 // Error 完成追踪并记录失败请求
+// 多次调用是安全的，只有首次调用会记录
 func (t *Tracker) Error(err error) {
+	if !t.done.CompareAndSwap(false, true) {
+		return
+	}
 	t.meter.RecordError(t.model, t.inputTokens, err)
 }

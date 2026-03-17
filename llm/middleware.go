@@ -2,13 +2,35 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/everyday-items/ai-core/streamx"
 )
+
+// isRetryableError 判断错误是否值得重试
+// 认证错误、参数错误等不应重试
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	// 常见不可重试错误特征
+	for _, keyword := range []string{
+		"401", "403", "Unauthorized", "Forbidden",
+		"invalid api key", "invalid_api_key",
+		"authentication", "permission",
+	} {
+		if strings.Contains(msg, keyword) {
+			return false
+		}
+	}
+	return true
+}
 
 // Middleware 定义 Provider 装饰器函数
 //
@@ -82,6 +104,10 @@ func (p *retryProvider) Complete(ctx context.Context, req CompletionRequest) (*C
 	var lastErr error
 	for attempt := 0; attempt <= p.maxRetries; attempt++ {
 		if attempt > 0 {
+			// 不可重试的错误直接返回，不再浪费资源
+			if !isRetryableError(lastErr) {
+				return nil, lastErr
+			}
 			delay := p.backoff * time.Duration(1<<uint(attempt-1))
 			delay = min(delay, 30*time.Second)
 			select {
@@ -97,13 +123,16 @@ func (p *retryProvider) Complete(ctx context.Context, req CompletionRequest) (*C
 		}
 		lastErr = err
 	}
-	return nil, fmt.Errorf("重试 %d 次后仍然失败: %w", p.maxRetries, lastErr)
+	return nil, fmt.Errorf("failed after %d retries: %w", p.maxRetries, lastErr)
 }
 
 func (p *retryProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) {
 	var lastErr error
 	for attempt := 0; attempt <= p.maxRetries; attempt++ {
 		if attempt > 0 {
+			if !isRetryableError(lastErr) {
+				return nil, lastErr
+			}
 			delay := p.backoff * time.Duration(1<<uint(attempt-1))
 			delay = min(delay, 30*time.Second)
 			select {
@@ -119,7 +148,7 @@ func (p *retryProvider) Stream(ctx context.Context, req CompletionRequest) (*str
 		}
 		lastErr = err
 	}
-	return nil, fmt.Errorf("重试 %d 次后仍然失败: %w", p.maxRetries, lastErr)
+	return nil, fmt.Errorf("failed after %d retries: %w", p.maxRetries, lastErr)
 }
 
 // ============== 限流中间件 ==============
@@ -423,20 +452,77 @@ func (p *cacheProvider) Stream(ctx context.Context, req CompletionRequest) (*str
 
 // defaultCacheKey 默认的缓存键生成
 //
-// 使用 \x00 分隔符 + 长度前缀避免碰撞。例如:
-//
-//	messages=[{user, "a|user:b"}] → "gpt-4o\x00user\x00a|user:b"
-//	messages=[{user, "a"}, {user, "b"}] → "gpt-4o\x00user\x00a\x00user\x00b"
-//
+// 使用 \x00 分隔符避免碰撞，包含所有影响 LLM 输出的请求字段。
 // \x00 在合法 UTF-8 文本中不会出现，因此可以安全地作为分隔符。
 func defaultCacheKey(req *CompletionRequest) string {
 	var b strings.Builder
 	b.WriteString(req.Model)
+
+	// Messages
 	for _, msg := range req.Messages {
 		b.WriteByte(0)
 		b.WriteString(string(msg.Role))
 		b.WriteByte(0)
 		b.WriteString(msg.Content)
 	}
+
+	// MaxTokens
+	if req.MaxTokens > 0 {
+		b.WriteByte(0)
+		b.WriteString("mt:")
+		b.WriteString(strconv.Itoa(req.MaxTokens))
+	}
+
+	// Temperature
+	if req.Temperature != nil {
+		b.WriteByte(0)
+		b.WriteString("t:")
+		b.WriteString(strconv.FormatFloat(*req.Temperature, 'f', -1, 64))
+	}
+
+	// TopP
+	if req.TopP != nil {
+		b.WriteByte(0)
+		b.WriteString("tp:")
+		b.WriteString(strconv.FormatFloat(*req.TopP, 'f', -1, 64))
+	}
+
+	// Stop
+	if len(req.Stop) > 0 {
+		b.WriteByte(0)
+		b.WriteString("s:")
+		b.WriteString(strings.Join(req.Stop, ","))
+	}
+
+	// User
+	if req.User != "" {
+		b.WriteByte(0)
+		b.WriteString("u:")
+		b.WriteString(req.User)
+	}
+
+	// ToolChoice
+	if req.ToolChoice != nil {
+		b.WriteByte(0)
+		b.WriteString("tc:")
+		b.WriteString(fmt.Sprint(req.ToolChoice))
+	}
+
+	// Tools
+	if len(req.Tools) > 0 {
+		b.WriteByte(0)
+		b.WriteString("tools:")
+		toolsJSON, _ := json.Marshal(req.Tools)
+		b.Write(toolsJSON)
+	}
+
+	// ResponseFormat
+	if req.ResponseFormat != nil {
+		b.WriteByte(0)
+		b.WriteString("rf:")
+		rfJSON, _ := json.Marshal(req.ResponseFormat)
+		b.Write(rfJSON)
+	}
+
 	return b.String()
 }

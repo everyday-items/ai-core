@@ -187,9 +187,12 @@ func (m *SummaryMemory) Clear(ctx context.Context) error {
 // Stats 返回记忆统计信息
 func (m *SummaryMemory) Stats() MemoryStats {
 	stats := m.buffer.Stats()
-	if m.summary != "" {
+	m.mu.RLock()
+	summary := m.summary
+	m.mu.RUnlock()
+	if summary != "" {
 		// 估算摘要的 token 数
-		stats.TokenCount += len(m.summary) / 4
+		stats.TokenCount += len(summary) / 4
 	}
 	return stats
 }
@@ -270,6 +273,9 @@ func (m *SummaryMemory) doSummarize(ctx context.Context) error {
 		return nil
 	}
 
+	// 记录快照时的条目数，用于后续检测并发修改
+	snapshotLen := len(entries)
+
 	// 需要摘要的条目
 	toSummarize := entries[:len(entries)-m.config.KeepRecent]
 	recentEntries := entries[len(entries)-m.config.KeepRecent:]
@@ -300,17 +306,26 @@ func (m *SummaryMemory) doSummarize(ctx context.Context) error {
 		return fmt.Errorf("summarize failed: %w", err)
 	}
 
-	// 更新摘要和清理旧条目（需要锁保护写入）
+	// 更新摘要（需要锁保护写入）
 	m.mu.Lock()
 	m.summary = newSummary
 	m.summaryTime = time.Now()
 	m.mu.Unlock()
 
 	// 清理旧条目，只保留最近的
-	// buffer 有自己的锁，不需要外部加锁
+	// 重新读取当前 entries，保留摘要期间新增的条目
+	currentEntries := m.buffer.Entries()
 	m.buffer.Clear(ctx)
+
+	// 保留快照时标记的 recentEntries
 	for _, entry := range recentEntries {
 		m.buffer.Save(ctx, entry)
+	}
+	// 保留摘要期间新增的条目（快照之后新写入的）
+	if len(currentEntries) > snapshotLen {
+		for _, entry := range currentEntries[snapshotLen:] {
+			m.buffer.Save(ctx, entry)
+		}
 	}
 
 	return nil

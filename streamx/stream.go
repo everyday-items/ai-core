@@ -209,6 +209,8 @@ func NewStream(r io.Reader, format Format) *Stream {
 //   - format: 流式响应格式
 func NewStreamWithContext(ctx context.Context, r io.Reader, format Format) *Stream {
 	s := NewStream(r, format)
+	// 释放 NewStream 中创建的默认 cancel，避免 context 泄漏
+	s.cancel()
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	return s
 }

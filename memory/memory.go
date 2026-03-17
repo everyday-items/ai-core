@@ -167,8 +167,11 @@ func (m *BufferMemory) Save(ctx context.Context, entry Entry) error {
 	}
 
 	// 如果已达容量，移除最旧的条目
+	// 使用 copy 而不是 m.entries[1:] 避免底层数组内存泄漏
 	if len(m.entries) >= m.capacity {
-		m.entries = m.entries[1:]
+		copy(m.entries, m.entries[1:])
+		m.entries[len(m.entries)-1] = Entry{} // 清除引用，允许 GC
+		m.entries = m.entries[:len(m.entries)-1]
 	}
 
 	m.entries = append(m.entries, entry)

@@ -211,18 +211,21 @@ func NewMultiLayerMemory(opts ...MultiLayerOption) *MultiLayerMemory {
 // Save 保存记忆条目到工作记忆
 func (m *MultiLayerMemory) Save(ctx context.Context, entry Entry) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	// 保存到工作记忆
 	if err := m.working.Save(ctx, entry); err != nil {
+		m.mu.Unlock()
 		return err
 	}
 
 	// 检查是否需要转移
-	if m.config.TransferPolicy.AutoTransfer {
-		if err := m.checkAndTransfer(ctx); err != nil {
-			// 转移失败不影响保存
-		}
+	needTransfer := m.config.TransferPolicy.AutoTransfer &&
+		m.working.Stats().EntryCount >= m.config.TransferPolicy.WorkingToShortTermThreshold
+	m.mu.Unlock()
+
+	// 在释放锁后执行转移（转移可能调用外部服务）
+	if needTransfer {
+		m.Transfer(ctx)
 	}
 
 	return nil
@@ -459,29 +462,6 @@ func (m *MultiLayerMemory) GetWorkingMemory() []Entry {
 	return m.working.Entries()
 }
 
-// checkAndTransfer 检查并执行记忆转移
-func (m *MultiLayerMemory) checkAndTransfer(ctx context.Context) error {
-	// 工作记忆 -> 短期记忆
-	workingStats := m.working.Stats()
-	if workingStats.EntryCount >= m.config.TransferPolicy.WorkingToShortTermThreshold {
-		if err := m.transferWorkingToShortTerm(ctx); err != nil {
-			return err
-		}
-	}
-
-	// 短期记忆 -> 长期记忆
-	if m.shortTerm != nil {
-		shortTermStats := m.shortTerm.Stats()
-		if shortTermStats.EntryCount >= m.config.TransferPolicy.ShortTermToLongTermThreshold {
-			if err := m.transferShortTermToLongTerm(ctx); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 // transferWorkingToShortTerm 将工作记忆转移到短期记忆
 func (m *MultiLayerMemory) transferWorkingToShortTerm(ctx context.Context) error {
 	if m.shortTerm == nil {
@@ -588,12 +568,14 @@ func (m *MultiLayerMemory) SaveToLongTerm(ctx context.Context, entry Entry) erro
 }
 
 // addLayerMeta 添加层元数据
+// 返回一个新的 map 副本，避免修改原始 Entry 的 Metadata
 func addLayerMeta(metadata map[string]any, layer MemoryLayer) map[string]any {
-	if metadata == nil {
-		metadata = make(map[string]any)
+	result := make(map[string]any, len(metadata)+1)
+	for k, v := range metadata {
+		result[k] = v
 	}
-	metadata["_layer"] = string(layer)
-	return metadata
+	result["_layer"] = string(layer)
+	return result
 }
 
 // 确保实现了接口
