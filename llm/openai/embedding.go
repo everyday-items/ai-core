@@ -68,6 +68,9 @@ func (p *Provider) EmbedWithModel(ctx context.Context, model string, texts []str
 	if len(texts) == 0 {
 		return nil, nil
 	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 
 	// 构建请求体
 	payload := embeddingRequest{
