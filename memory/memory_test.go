@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -157,8 +158,8 @@ func TestBufferMemory_Get(t *testing.T) {
 
 	// 获取不存在的条目
 	got, err = mem.Get(ctx, "nonexistent")
-	if err != nil {
-		t.Fatalf("Get error: %v", err)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Get nonexistent: want ErrNotFound, got %v", err)
 	}
 	if got != nil {
 		t.Error("Get should return nil for nonexistent entry")
@@ -311,12 +312,18 @@ func TestBufferMemory_Delete(t *testing.T) {
 		t.Errorf("EntryCount = %d, want 1", stats.EntryCount)
 	}
 
-	got, _ := mem.Get(ctx, "to-delete")
+	got, err := mem.Get(ctx, "to-delete")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("Get deleted entry: want ErrNotFound, got %v", err)
+	}
 	if got != nil {
 		t.Error("Deleted entry should not exist")
 	}
 
-	got, _ = mem.Get(ctx, "keep")
+	got, err = mem.Get(ctx, "keep")
+	if err != nil {
+		t.Fatalf("Get kept entry: %v", err)
+	}
 	if got == nil {
 		t.Error("Kept entry should exist")
 	}
@@ -326,9 +333,9 @@ func TestBufferMemory_Delete_Nonexistent(t *testing.T) {
 	mem := NewBuffer(10)
 	ctx := context.Background()
 
-	// 删除不存在的条目不应该报错
-	if err := mem.Delete(ctx, "nonexistent"); err != nil {
-		t.Fatalf("Delete error: %v", err)
+	// 删除不存在的条目应该返回 ErrNotFound
+	if err := mem.Delete(ctx, "nonexistent"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Delete nonexistent: want ErrNotFound, got %v", err)
 	}
 }
 

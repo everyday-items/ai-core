@@ -306,11 +306,14 @@ func (m *SummaryMemory) doSummarize(ctx context.Context) error {
 		return fmt.Errorf("summarize failed: %w", err)
 	}
 
-	// 更新摘要（需要锁保护写入）
+	// Hold the lock during the entire Clear + re-insert phase to prevent
+	// concurrent Save from losing data between Clear and re-insert (TOCTOU fix).
 	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// 更新摘要
 	m.summary = newSummary
 	m.summaryTime = time.Now()
-	m.mu.Unlock()
 
 	// 清理旧条目，只保留最近的
 	// 重新读取当前 entries，保留摘要期间新增的条目

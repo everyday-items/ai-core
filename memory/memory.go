@@ -4,13 +4,19 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
+// ErrNotFound is returned when a memory entry does not exist.
+var ErrNotFound = errors.New("memory: entry not found")
+
 // Memory 定义记忆系统的核心接口
+//
+// Experimental: this interface may change in future versions.
 type Memory interface {
 	// Save 保存单条记忆条目
 	Save(ctx context.Context, entry Entry) error
@@ -199,7 +205,7 @@ func (m *BufferMemory) Get(ctx context.Context, id string) (*Entry, error) {
 			return &entry, nil
 		}
 	}
-	return nil, nil
+	return nil, ErrNotFound
 }
 
 // Search 搜索记忆条目
@@ -289,7 +295,7 @@ func (m *BufferMemory) Delete(ctx context.Context, id string) error {
 			return nil
 		}
 	}
-	return nil
+	return ErrNotFound
 }
 
 // Clear 清空所有记忆

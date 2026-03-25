@@ -7,12 +7,12 @@ A Go library providing core AI capabilities for the [Hexagon](https://github.com
 ## Features
 
 - **Unified LLM Interface** — One API, multiple providers (OpenAI, Anthropic, DeepSeek, Gemini, Qwen, Doubao, Ollama)
-- **Middleware Pipeline** — Composable provider decorators: retry (with non-retryable error detection), rate limiting, timeout, callbacks, caching
+- **Middleware Pipeline** — Composable provider decorators: retry (with non-retryable error detection), rate limiting, timeout, callbacks, caching (with singleflight to prevent thundering herd)
 - **Streaming** — Unified SSE streaming with both callback and channel modes
 - **Tool System** — Type-safe tool definitions with automatic JSON Schema generation from Go structs
-- **Memory System** — Multiple memory strategies (buffer, summary, vector retrieval, multi-layer, entity memory)
+- **Memory System** *(Experimental)* — Multiple memory strategies (buffer, summary, vector retrieval, multi-layer, entity memory). This interface is experimental and may change in future versions
 - **Smart Routing** — Multi-provider router with round-robin, weighted, least-latency, fallback strategies; task-aware intelligent routing
-- **Usage Tracking** — Token consumption statistics and cost estimation with request tracing
+- **Usage Tracking** — Token consumption statistics and cost estimation (atomic cumulative counter, consistent after pruning) with request tracing
 - **Structured Output** — ResponseFormat supporting JSON mode and JSON Schema constraints
 
 ## Installation
@@ -120,7 +120,7 @@ enhanced := llm.Chain(provider,
     llm.WithRetry(3, time.Second),       // Exponential backoff retry (skips 401/403 etc.)
     llm.WithRateLimit(10),               // 10 QPS token bucket rate limiting
     llm.WithTimeout(30 * time.Second),   // Request timeout (does not affect Stream)
-    llm.WithCache(cache.NewMemoryCache(), nil), // LRU in-memory cache
+    llm.WithCache(cache.NewMemoryCache(), nil), // LRU in-memory cache (singleflight to prevent thundering herd)
 )
 
 resp, _ := enhanced.Complete(ctx, req)
@@ -147,7 +147,9 @@ r := router.NewBuilder().
 resp, _ := r.Complete(ctx, req)
 ```
 
-### Memory System
+### Memory System *(Experimental)*
+
+> **Note:** The Memory interface is experimental and may change in future versions.
 
 ```go
 import "github.com/hexagon-codes/ai-core/memory"
@@ -157,7 +159,14 @@ buf := memory.NewBuffer(100)
 buf.Save(ctx, memory.NewUserEntry("Hello"))
 buf.Save(ctx, memory.NewAssistantEntry("Hi! How can I help you?"))
 
+// Get() / Delete() return memory.ErrNotFound when the entry does not exist
+entry, err := buf.Get(ctx, "some-id")
+if errors.Is(err, memory.ErrNotFound) {
+    // handle not found
+}
+
 // Summary memory — auto-compress to summary when threshold exceeded
+// doSummarize is concurrency-safe (Clear + re-insert under lock)
 sum := memory.NewSummaryMemory(summarizer, memory.WithMaxEntries(20))
 
 // Vector memory — semantic retrieval
@@ -165,6 +174,7 @@ vec := memory.NewVectorMemory(embedder)
 results, _ := vec.SemanticSearch(ctx, "architecture discussion from earlier", 5)
 
 // Multi-layer memory — working → short-term → long-term
+// Transfer() uses a dedicated transferMu to avoid blocking reads during embedder calls
 multi := memory.NewMultiLayerMemory(
     memory.WithSummarizer(summarizer),
     memory.WithEmbedder(embedder),
@@ -184,14 +194,14 @@ multi := memory.NewMultiLayerMemory(
 | `llm/ark` | Doubao (ByteDance) implementation |
 | `llm/ollama` | Ollama local model implementation |
 | `llm/router` | Multi-provider intelligent routing, task-aware routing (SmartRouter) |
-| `llm/cache` | LRU in-memory cache (with TTL support) |
-| `memory` | Agent memory system (buffer/summary/vector/multi-layer/entity) |
+| `llm/cache` | LRU in-memory cache (with TTL support, singleflight) |
+| `memory` | Agent memory system (buffer/summary/vector/multi-layer/entity) *Experimental* |
 | `tool` | Tool definition and registration |
 | `schema` | JSON Schema generation (reflection from Go structs) |
 | `streamx` | Unified streaming abstraction (OpenAI/Claude/Gemini formats) |
 | `template` | Prompt template engine (multimodal support) |
 | `tokenizer` | Token count estimation |
-| `meter` | Usage statistics and cost tracking |
+| `meter` | Usage statistics and cost tracking (atomic cumulative cost counter) |
 | `store/vector` | Vector storage abstraction (in-memory/Qdrant) |
 
 ## Supported LLM Providers

@@ -7,12 +7,12 @@ Go 语言的 AI 基础能力库，为 [Hexagon](https://github.com/hexagon-codes
 ## 特性
 
 - **统一的 LLM 接口** - 一套代码，多家 Provider（OpenAI、Anthropic、DeepSeek、Gemini、通义千问、豆包、Ollama）
-- **中间件机制** - 可组合的 Provider 装饰器：重试（含不可重试错误检测）、限流、超时、回调、缓存
+- **中间件机制** - 可组合的 Provider 装饰器：重试（含不可重试错误检测）、限流、超时、回调、缓存（含 singleflight 防击穿）
 - **流式响应** - 统一的 SSE 流式处理，支持回调和 channel 两种模式
 - **工具系统** - 类型安全的工具定义，从 Go 结构体自动生成 JSON Schema
-- **记忆系统** - 多种记忆策略（缓冲、摘要、向量检索、多层组合、实体记忆）
+- **记忆系统** *(Experimental)* - 多种记忆策略（缓冲、摘要、向量检索、多层组合、实体记忆）。此接口处于实验阶段，后续版本可能发生变更
 - **智能路由** - 多 Provider 路由器，支持轮询、加权、最低延迟、降级等策略；任务感知智能路由
-- **用量追踪** - Token 消耗统计和成本估算，支持请求追踪器
+- **用量追踪** - Token 消耗统计和成本估算（原子累加器，裁剪后数值一致），支持请求追踪器
 - **结构化输出** - ResponseFormat 支持 JSON 模式和 JSON Schema 约束
 
 ## 安装
@@ -120,7 +120,7 @@ enhanced := llm.Chain(provider,
     llm.WithRetry(3, time.Second),       // 指数退避重试（自动跳过 401/403 等不可重试错误）
     llm.WithRateLimit(10),               // 10 QPS 令牌桶限流
     llm.WithTimeout(30 * time.Second),   // 请求超时（不影响 Stream）
-    llm.WithCache(cache.NewMemoryCache(), nil), // LRU 内存缓存
+    llm.WithCache(cache.NewMemoryCache(), nil), // LRU 内存缓存（singleflight 防击穿）
 )
 
 resp, _ := enhanced.Complete(ctx, req)
@@ -147,7 +147,9 @@ r := router.NewBuilder().
 resp, _ := r.Complete(ctx, req)
 ```
 
-### 记忆系统
+### 记忆系统 *(Experimental)*
+
+> **注意：** 记忆接口处于实验阶段，后续版本可能发生不兼容变更。
 
 ```go
 import "github.com/hexagon-codes/ai-core/memory"
@@ -157,7 +159,13 @@ buf := memory.NewBuffer(100)
 buf.Save(ctx, memory.NewUserEntry("你好"))
 buf.Save(ctx, memory.NewAssistantEntry("你好！有什么可以帮助你的？"))
 
-// 摘要记忆 — 超过阈值自动压缩为摘要
+// Get() / Delete() 在条目不存在时返回 memory.ErrNotFound
+entry, err := buf.Get(ctx, "some-id")
+if errors.Is(err, memory.ErrNotFound) {
+    // 处理未找到
+}
+
+// 摘要记忆 — 超过阈值自动压缩为摘要（doSummarize 并发安全：Clear + 重新写入在锁内完成）
 sum := memory.NewSummaryMemory(summarizer, memory.WithMaxEntries(20))
 
 // 向量记忆 — 语义检索
@@ -165,6 +173,7 @@ vec := memory.NewVectorMemory(embedder)
 results, _ := vec.SemanticSearch(ctx, "之前讨论的架构方案", 5)
 
 // 多层记忆 — 工作记忆 → 短期记忆 → 长期记忆
+// Transfer() 使用独立的 transferMu 锁，避免在调用 Embedder 时阻塞读操作
 multi := memory.NewMultiLayerMemory(
     memory.WithSummarizer(summarizer),
     memory.WithEmbedder(embedder),
@@ -184,14 +193,14 @@ multi := memory.NewMultiLayerMemory(
 | `llm/ark` | 豆包（字节跳动）实现 |
 | `llm/ollama` | Ollama 本地模型实现 |
 | `llm/router` | 多 Provider 智能路由、任务感知路由（SmartRouter） |
-| `llm/cache` | LRU 内存缓存实现（支持 TTL） |
-| `memory` | Agent 记忆系统（缓冲/摘要/向量/多层/实体） |
+| `llm/cache` | LRU 内存缓存实现（支持 TTL、singleflight 防击穿） |
+| `memory` | Agent 记忆系统（缓冲/摘要/向量/多层/实体）*Experimental* |
 | `tool` | 工具定义和注册 |
 | `schema` | JSON Schema 生成（从 Go 结构体反射） |
 | `streamx` | 流式响应统一抽象（OpenAI/Claude/Gemini 格式） |
 | `template` | Prompt 模板引擎（支持多模态） |
 | `tokenizer` | Token 计数估算 |
-| `meter` | 用量统计和成本追踪 |
+| `meter` | 用量统计和成本追踪（原子累加成本计数器） |
 | `store/vector` | 向量存储抽象（内存/Qdrant） |
 
 ## 支持的 LLM Provider

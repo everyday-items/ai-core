@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -36,8 +37,12 @@ type MultiLayerMemory struct {
 	// 配置
 	config MultiLayerConfig
 
-	// 互斥锁
+	// 互斥锁（保护 working/shortTerm/longTerm 的快速读写操作）
 	mu sync.RWMutex
+
+	// transferMu 专用于 Transfer 操作，避免持有 mu 期间调用外部服务（embedder 等）
+	// Transfer 持有 transferMu 时不阻塞 mu 保护的读操作
+	transferMu sync.Mutex
 
 	// 统计
 	stats MultiLayerStats
@@ -247,25 +252,31 @@ func (m *MultiLayerMemory) Get(ctx context.Context, id string) (*Entry, error) {
 	defer m.mu.RUnlock()
 
 	// 先从工作记忆查找
-	if entry, _ := m.working.Get(ctx, id); entry != nil {
+	if entry, err := m.working.Get(ctx, id); err == nil {
 		return entry, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, err
 	}
 
 	// 从短期记忆查找
 	if m.shortTerm != nil {
-		if entry, _ := m.shortTerm.Get(ctx, id); entry != nil {
+		if entry, err := m.shortTerm.Get(ctx, id); err == nil {
 			return entry, nil
+		} else if !errors.Is(err, ErrNotFound) {
+			return nil, err
 		}
 	}
 
 	// 从长期记忆查找
 	if m.longTerm != nil {
-		if entry, _ := m.longTerm.Get(ctx, id); entry != nil {
+		if entry, err := m.longTerm.Get(ctx, id); err == nil {
 			return entry, nil
+		} else if !errors.Is(err, ErrNotFound) {
+			return nil, err
 		}
 	}
 
-	return nil, nil
+	return nil, ErrNotFound
 }
 
 // Search 搜索记忆条目
@@ -338,14 +349,33 @@ func (m *MultiLayerMemory) Delete(ctx context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.working.Delete(ctx, id)
-	if m.shortTerm != nil {
-		m.shortTerm.Delete(ctx, id)
-	}
-	if m.longTerm != nil {
-		m.longTerm.Delete(ctx, id)
+	found := false
+
+	if err := m.working.Delete(ctx, id); err == nil {
+		found = true
+	} else if !errors.Is(err, ErrNotFound) {
+		return err
 	}
 
+	if m.shortTerm != nil {
+		if err := m.shortTerm.Delete(ctx, id); err == nil {
+			found = true
+		} else if !errors.Is(err, ErrNotFound) {
+			return err
+		}
+	}
+
+	if m.longTerm != nil {
+		if err := m.longTerm.Delete(ctx, id); err == nil {
+			found = true
+		} else if !errors.Is(err, ErrNotFound) {
+			return err
+		}
+	}
+
+	if !found {
+		return ErrNotFound
+	}
 	return nil
 }
 
@@ -499,7 +529,8 @@ func (m *MultiLayerMemory) transferWorkingToShortTerm(ctx context.Context) error
 }
 
 // transferShortTermToLongTerm 将短期记忆转移到长期记忆
-// 注意：调用前必须持有 m.mu 锁，此方法会临时释放锁以调用外部服务
+// Called with transferMu held but NOT mu, so slow external calls
+// (embedder, summarizer) do not block other read operations.
 func (m *MultiLayerMemory) transferShortTermToLongTerm(ctx context.Context) error {
 	if m.longTerm == nil || m.shortTerm == nil {
 		return nil
@@ -512,7 +543,7 @@ func (m *MultiLayerMemory) transferShortTermToLongTerm(ctx context.Context) erro
 		return nil
 	}
 
-	// 转移较旧的条目到长期记忆
+	// 转移较旧的条目到长期记忆（可能调用 embedder，慢速网络调用）
 	toTransfer := entries[:len(entries)-keepCount]
 	if err := m.longTerm.SaveBatch(ctx, toTransfer); err != nil {
 		return err
@@ -521,7 +552,10 @@ func (m *MultiLayerMemory) transferShortTermToLongTerm(ctx context.Context) erro
 	// ForceSummarize 内部会按需加锁，不会死锁
 	m.shortTerm.ForceSummarize(ctx)
 
+	// Acquire mu briefly to update transfer stats
+	m.mu.Lock()
 	m.updateTransferStats()
+	m.mu.Unlock()
 
 	return nil
 }
@@ -533,13 +567,23 @@ func (m *MultiLayerMemory) updateTransferStats() {
 }
 
 // Transfer 手动触发记忆转移
+// Uses transferMu to serialize transfers without blocking reads on mu.
+// The mu lock is acquired only for short data-copy phases, not during
+// slow external calls (embedder, summarizer).
 func (m *MultiLayerMemory) Transfer(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.transferMu.Lock()
+	defer m.transferMu.Unlock()
 
-	if err := m.transferWorkingToShortTerm(ctx); err != nil {
+	m.mu.Lock()
+	err := m.transferWorkingToShortTerm(ctx)
+	m.mu.Unlock()
+	if err != nil {
 		return err
 	}
+
+	// transferShortTermToLongTerm may call embedder (slow network call)
+	// and summarizer. We do NOT hold mu during these calls so that
+	// Get/Search/Save on other goroutines are not blocked.
 	return m.transferShortTermToLongTerm(ctx)
 }
 

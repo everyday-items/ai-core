@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -107,7 +108,10 @@ func TestVectorMemory_Delete(t *testing.T) {
 	}
 
 	// 确认删除
-	found, _ := mem.Get(ctx, "test-id")
+	found, err := mem.Get(ctx, "test-id")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("Get deleted entry: want ErrNotFound, got %v", err)
+	}
 	if found != nil {
 		t.Error("entry should be deleted")
 	}

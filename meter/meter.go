@@ -116,6 +116,7 @@ type Meter struct {
 	outputTokens    atomic.Int64 // 总输出 Token
 	totalLatency    atomic.Int64 // 总延迟（纳秒）
 	latencyCount    atomic.Int64 // 有延迟记录的请求数（用于计算平均值）
+	totalCost       atomic.Int64 // 累计成本（微美元，即 cost * 1_000_000）
 }
 
 // New 创建新的用量统计器
@@ -225,6 +226,15 @@ func (m *Meter) RecordWithDetails(model string, inputTokens, outputTokens int, l
 		m.totalLatency.Add(int64(latency))
 		m.latencyCount.Add(1)
 	}
+
+	// 累计成本（存为微美元 int64，与 records 清理无关）
+	m.mu.RLock()
+	if pricing, ok := m.pricing[model]; ok {
+		costMicro := int64(float64(inputTokens)/1_000_000*pricing.InputPrice*1_000_000) +
+			int64(float64(outputTokens)/1_000_000*pricing.OutputPrice*1_000_000)
+		m.totalCost.Add(costMicro)
+	}
+	m.mu.RUnlock()
 }
 
 // Stats 返回所有请求的聚合统计信息
@@ -248,13 +258,9 @@ func (m *Meter) Stats() Stats {
 		TotalTokens:     m.inputTokens.Load() + m.outputTokens.Load(),
 	}
 
-	// 计算成本（遍历剩余记录）
-	for _, r := range m.records {
-		if pricing, ok := m.pricing[r.Model]; ok {
-			stats.EstimatedCost += float64(r.InputTokens) / 1_000_000 * pricing.InputPrice
-			stats.EstimatedCost += float64(r.OutputTokens) / 1_000_000 * pricing.OutputPrice
-		}
-	}
+	// Use cumulative atomic counter for cost (consistent with TotalRequests
+	// even after records are pruned). Stored as micro-dollars.
+	stats.EstimatedCost = float64(m.totalCost.Load()) / 1_000_000
 
 	// 计算平均延迟（使用原子计数器，反映全部历史）
 	latencyCount := m.latencyCount.Load()
@@ -403,6 +409,7 @@ func (m *Meter) Clear() {
 	m.outputTokens.Store(0)
 	m.totalLatency.Store(0)
 	m.latencyCount.Store(0)
+	m.totalCost.Store(0)
 }
 
 // Report 生成人类可读的文本报告

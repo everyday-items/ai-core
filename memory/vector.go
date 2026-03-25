@@ -231,7 +231,7 @@ func (m *VectorMemory) Get(ctx context.Context, id string) (*Entry, error) {
 
 	entry, ok := m.entries[id]
 	if !ok {
-		return nil, nil
+		return nil, ErrNotFound
 	}
 	return entry, nil
 }
@@ -335,6 +335,9 @@ func (m *VectorMemory) Delete(ctx context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if _, ok := m.entries[id]; !ok {
+		return ErrNotFound
+	}
 	delete(m.entries, id)
 	return m.store.Delete(ctx, id)
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hexagon-codes/ai-core/streamx"
+	"golang.org/x/sync/singleflight"
 )
 
 // isRetryableError 判断错误是否值得重试
@@ -409,6 +410,7 @@ type cacheProvider struct {
 	inner Provider
 	cache Cache
 	keyFn CacheKeyFunc
+	sf    singleflight.Group
 }
 
 func (p *cacheProvider) Name() string { return p.inner.Name() }
@@ -433,16 +435,30 @@ func (p *cacheProvider) Complete(ctx context.Context, req CompletionRequest) (*C
 		return cached, nil
 	}
 
-	// 调用后端
-	resp, err := p.inner.Complete(ctx, req)
+	// Use singleflight to deduplicate concurrent cache-miss requests
+	// with the same key, preventing thundering herd on the backend.
+	v, err, _ := p.sf.Do(key, func() (any, error) {
+		// Double-check cache inside singleflight in case another
+		// goroutine populated it between our first check and entering Do.
+		if cached, err := p.cache.Get(ctx, key); err == nil && cached != nil {
+			return cached, nil
+		}
+
+		resp, err := p.inner.Complete(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+
+		// 写入缓存（忽略缓存写入错误）
+		_ = p.cache.Set(ctx, key, resp)
+
+		return resp, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// 写入缓存（忽略缓存写入错误）
-	_ = p.cache.Set(ctx, key, resp)
-
-	return resp, nil
+	return v.(*CompletionResponse), nil
 }
 
 func (p *cacheProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) {
