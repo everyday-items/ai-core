@@ -52,6 +52,19 @@ type Message struct {
 	// MultiContent 多模态内容（图片+文本混合），用于 Vision 等多模态 API
 	// 当此字段不为空时，Content 字段将被忽略
 	MultiContent []ContentPart `json:"multi_content,omitempty"`
+	// ToolCallID 工具调用 ID（当 Role=RoleTool 时必填）
+	// 关联到 assistant 消息中 ToolCalls[].ID，用于 checkpoint/resume/replay
+	ToolCallID string `json:"tool_call_id,omitempty"`
+	// ToolCalls 工具调用列表（当 Role=RoleAssistant 且 LLM 请求工具调用时填充）
+	ToolCalls []ToolCallRef `json:"tool_calls,omitempty"`
+}
+
+// ToolCallRef 轻量工具调用引用，存储在 Message 中
+// 完整的 ToolCall 定义在 streamx 包中
+type ToolCallRef struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 // ContentPart 多模态消息的内容部分

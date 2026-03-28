@@ -15,6 +15,15 @@ type (
 
 	// Message 聊天消息
 	Message = template.Message
+
+	// ToolCallRef 轻量工具调用引用
+	ToolCallRef = template.ToolCallRef
+
+	// ContentPart 多模态内容部分 (文本/图片)
+	ContentPart = template.ContentPart
+
+	// ImageURL 图片 URL
+	ImageURL = template.ImageURL
 )
 
 // 重新导出角色常量
@@ -282,4 +291,21 @@ func AssistantMessage(content string) Message {
 // ToolMessage 创建工具结果消息
 func ToolMessage(content string) Message {
 	return Message{Role: RoleTool, Content: content}
+}
+
+// ToolResultMessage 创建带 tool_call_id 的工具结果消息
+// callID 关联到 assistant 消息中 ToolCalls[].ID
+func ToolResultMessage(callID, content string) Message {
+	return Message{Role: RoleTool, Content: content, ToolCallID: callID}
+}
+
+// AssistantToolCallMessage 创建包含工具调用请求的 assistant 消息
+// NewTextPart 创建文本内容部分 (多模态消息用)
+var NewTextPart = template.NewTextPart
+
+// NewImageURLPart 创建图片 URL 内容部分 (多模态消息用)
+var NewImageURLPart = template.NewImageURLPart
+
+func AssistantToolCallMessage(content string, calls []ToolCallRef) Message {
+	return Message{Role: RoleAssistant, Content: content, ToolCalls: calls}
 }
