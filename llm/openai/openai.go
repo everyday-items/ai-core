@@ -63,7 +63,14 @@ func New(apiKey string, opts ...Option) *Provider {
 		apiKey:     apiKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: &http.Client{Timeout: 120 * time.Second},
+		httpClient: &http.Client{
+			// 不设全局 Timeout — 流式请求的超时由调用方 context 控制
+			// http.Client.Timeout 对流式响应会在整个读取期间生效，
+			// thinking 模型（Qwen3/DeepSeek-R1）可能需要数分钟
+			Transport: &http.Transport{
+				ResponseHeaderTimeout: 120 * time.Second, // 仅限制等待首个响应头
+			},
+		},
 	}
 
 	for _, opt := range opts {

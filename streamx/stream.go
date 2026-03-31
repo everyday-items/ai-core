@@ -50,6 +50,9 @@ type Chunk struct {
 	// Content 本次增量的文本内容
 	// 流式响应会将完整内容拆分为多个增量，每个块包含一部分
 	Content string `json:"content,omitempty"`
+	// Reasoning 推理/思考过程的增量内容
+	// 支持 OpenAI o1/o3、DeepSeek-R1、Qwen3 等模型的 reasoning_content/reasoning 字段
+	Reasoning string `json:"reasoning,omitempty"`
 	// Role 消息角色，通常为 "assistant"
 	// 一般只在首个块中包含此字段
 	Role string `json:"role,omitempty"`

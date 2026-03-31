@@ -23,9 +23,11 @@ type openAIChunk struct {
 	Choices []struct {
 		Index int `json:"index"`
 		Delta struct {
-			Role      string `json:"role,omitempty"`
-			Content   string `json:"content,omitempty"`
-			ToolCalls []struct {
+			Role             string `json:"role,omitempty"`
+			Content          string `json:"content,omitempty"`
+			Reasoning        string `json:"reasoning,omitempty"`         // Ollama (Qwen3, DeepSeek-R1)
+			ReasoningContent string `json:"reasoning_content,omitempty"` // OpenAI o1/o3, DeepSeek API
+			ToolCalls        []struct {
 				Index    int    `json:"index"`
 				ID       string `json:"id,omitempty"`
 				Type     string `json:"type,omitempty"`
@@ -64,6 +66,13 @@ func (p *OpenAIParser) Parse(data []byte) (*Chunk, error) {
 		chunk.Role = choice.Delta.Role
 		chunk.Content = choice.Delta.Content
 		chunk.FinishReason = choice.FinishReason
+
+		// 提取推理内容（Qwen3 用 reasoning，DeepSeek/OpenAI 用 reasoning_content）
+		if choice.Delta.Reasoning != "" {
+			chunk.Reasoning = choice.Delta.Reasoning
+		} else if choice.Delta.ReasoningContent != "" {
+			chunk.Reasoning = choice.Delta.ReasoningContent
+		}
 
 		// 处理工具调用
 		for _, tc := range choice.Delta.ToolCalls {
