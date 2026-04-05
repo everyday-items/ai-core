@@ -581,11 +581,11 @@ func StatsGlobal() Stats {
 //	// ... 执行 API 调用 ...
 //	tracker.Done(50)  // 记录成功，自动计算延迟
 type Tracker struct {
-	meter       *Meter        // 关联的统计器
-	model       string        // 模型名称
-	inputTokens int           // 输入 Token 数
-	startTime   time.Time     // 请求开始时间
-	done        atomic.Bool   // 防止多次调用 Done/Error
+	meter       *Meter      // 关联的统计器
+	model       string      // 模型名称
+	inputTokens int         // 输入 Token 数
+	startTime   time.Time   // 请求开始时间
+	done        atomic.Bool // 防止多次调用 Done/Error
 }
 
 // NewTracker 创建请求追踪器

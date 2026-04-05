@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hexagon-codes/ai-core/streamx"
+	"github.com/hexagon-codes/toolkit/util/retry"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -73,6 +74,7 @@ func Chain(provider Provider, middlewares ...Middleware) Provider {
 //
 // 当请求失败时自动重试，使用指数退避策略。
 // 退避时间为 backoff * 2^attempt，上限为 30 秒。
+// 内部委托给 toolkit/util/retry.DoWithContext。
 //
 // 参数:
 //   - maxRetries: 最大重试次数（不含首次请求）
@@ -101,55 +103,36 @@ func (p *retryProvider) CountTokens(messages []Message) (int, error) {
 	return p.inner.CountTokens(messages)
 }
 
-func (p *retryProvider) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
-	var lastErr error
-	for attempt := 0; attempt <= p.maxRetries; attempt++ {
-		if attempt > 0 {
-			// 不可重试的错误直接返回，不再浪费资源
-			if !isRetryableError(lastErr) {
-				return nil, lastErr
-			}
-			delay := p.backoff * time.Duration(1<<uint(attempt-1))
-			delay = min(delay, 30*time.Second)
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(delay):
-			}
-		}
-
-		resp, err := p.inner.Complete(ctx, req)
-		if err == nil {
-			return resp, nil
-		}
-		lastErr = err
+func (p *retryProvider) retryOpts() []retry.Option {
+	return []retry.Option{
+		retry.Attempts(p.maxRetries + 1), // maxRetries + 1 = total attempts
+		retry.Delay(p.backoff),
+		retry.Multiplier(2),
+		retry.MaxDelay(30 * time.Second),
+		retry.RetryIf(func(err error) bool {
+			return isRetryableError(err)
+		}),
 	}
-	return nil, fmt.Errorf("failed after %d retries: %w", p.maxRetries, lastErr)
+}
+
+func (p *retryProvider) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
+	var resp *CompletionResponse
+	err := retry.DoWithContext(ctx, func() error {
+		var e error
+		resp, e = p.inner.Complete(ctx, req)
+		return e
+	}, p.retryOpts()...)
+	return resp, err
 }
 
 func (p *retryProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) {
-	var lastErr error
-	for attempt := 0; attempt <= p.maxRetries; attempt++ {
-		if attempt > 0 {
-			if !isRetryableError(lastErr) {
-				return nil, lastErr
-			}
-			delay := p.backoff * time.Duration(1<<uint(attempt-1))
-			delay = min(delay, 30*time.Second)
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(delay):
-			}
-		}
-
-		stream, err := p.inner.Stream(ctx, req)
-		if err == nil {
-			return stream, nil
-		}
-		lastErr = err
-	}
-	return nil, fmt.Errorf("failed after %d retries: %w", p.maxRetries, lastErr)
+	var stream *streamx.Stream
+	err := retry.DoWithContext(ctx, func() error {
+		var e error
+		stream, e = p.inner.Stream(ctx, req)
+		return e
+	}, p.retryOpts()...)
+	return stream, err
 }
 
 // ============== 限流中间件 ==============

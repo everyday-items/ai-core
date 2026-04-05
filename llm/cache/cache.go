@@ -39,7 +39,7 @@ import (
 type MemoryCache struct {
 	mu         sync.Mutex
 	entries    map[string]*list.Element // key → list.Element (值为 *cacheEntry)
-	evictList  *list.List              // LRU 链表，前端是最旧的
+	evictList  *list.List               // LRU 链表，前端是最旧的
 	maxEntries int
 	ttl        time.Duration
 	hits       int64

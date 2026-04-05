@@ -277,8 +277,8 @@ func TestMatchFilter(t *testing.T) {
 
 func TestDocument(t *testing.T) {
 	doc := Document{
-		ID:      "test-1",
-		Content: "Test content",
+		ID:        "test-1",
+		Content:   "Test content",
 		Embedding: []float32{0.1, 0.2, 0.3},
 		Metadata: map[string]any{
 			"source": "test",

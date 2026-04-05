@@ -72,20 +72,20 @@ func TestSmartRouterRoute(t *testing.T) {
 		name: "openai",
 		models: []llm.ModelInfo{
 			{
-				ID:          "gpt-4o",
-				Name:        "GPT-4o",
-				InputCost:   2.5,
-				OutputCost:  10.0,
-				MaxTokens:   128000,
-				Features:    []string{"vision", "functions", "streaming"},
+				ID:         "gpt-4o",
+				Name:       "GPT-4o",
+				InputCost:  2.5,
+				OutputCost: 10.0,
+				MaxTokens:  128000,
+				Features:   []string{"vision", "functions", "streaming"},
 			},
 			{
-				ID:          "gpt-4o-mini",
-				Name:        "GPT-4o Mini",
-				InputCost:   0.15,
-				OutputCost:  0.6,
-				MaxTokens:   128000,
-				Features:    []string{"vision", "functions", "streaming"},
+				ID:         "gpt-4o-mini",
+				Name:       "GPT-4o Mini",
+				InputCost:  0.15,
+				OutputCost: 0.6,
+				MaxTokens:  128000,
+				Features:   []string{"vision", "functions", "streaming"},
 			},
 		},
 	}
@@ -94,12 +94,12 @@ func TestSmartRouterRoute(t *testing.T) {
 		name: "deepseek",
 		models: []llm.ModelInfo{
 			{
-				ID:          "deepseek-chat",
-				Name:        "DeepSeek Chat",
-				InputCost:   0.14,
-				OutputCost:  0.28,
-				MaxTokens:   64000,
-				Features:    []string{"functions", "streaming"},
+				ID:         "deepseek-chat",
+				Name:       "DeepSeek Chat",
+				InputCost:  0.14,
+				OutputCost: 0.28,
+				MaxTokens:  64000,
+				Features:   []string{"functions", "streaming"},
 			},
 		},
 	}
@@ -212,12 +212,12 @@ func TestSmartRouterCompleteWithRouting(t *testing.T) {
 		name: "openai",
 		models: []llm.ModelInfo{
 			{
-				ID:          "gpt-4o-mini",
-				Name:        "GPT-4o Mini",
-				InputCost:   0.15,
-				OutputCost:  0.6,
-				MaxTokens:   128000,
-				Features:    []string{"functions", "streaming"},
+				ID:         "gpt-4o-mini",
+				Name:       "GPT-4o Mini",
+				InputCost:  0.15,
+				OutputCost: 0.6,
+				MaxTokens:  128000,
+				Features:   []string{"functions", "streaming"},
 			},
 		},
 	}
@@ -443,12 +443,12 @@ func TestSmartRoutingStats(t *testing.T) {
 		name: "openai",
 		models: []llm.ModelInfo{
 			{
-				ID:          "gpt-4o-mini",
-				Name:        "GPT-4o Mini",
-				InputCost:   0.15,
-				OutputCost:  0.6,
-				MaxTokens:   128000,
-				Features:    []string{"functions", "streaming"},
+				ID:         "gpt-4o-mini",
+				Name:       "GPT-4o Mini",
+				InputCost:  0.15,
+				OutputCost: 0.6,
+				MaxTokens:  128000,
+				Features:   []string{"functions", "streaming"},
 			},
 		},
 	}
@@ -490,12 +490,12 @@ func TestRoutingWithConstraints(t *testing.T) {
 		name: "expensive",
 		models: []llm.ModelInfo{
 			{
-				ID:          "expensive-model",
-				Name:        "Expensive Model",
-				InputCost:   100.0, // 非常高的成本
-				OutputCost:  200.0,
-				MaxTokens:   128000,
-				Features:    []string{"functions", "streaming"},
+				ID:         "expensive-model",
+				Name:       "Expensive Model",
+				InputCost:  100.0, // 非常高的成本
+				OutputCost: 200.0,
+				MaxTokens:  128000,
+				Features:   []string{"functions", "streaming"},
 			},
 		},
 	}
@@ -504,12 +504,12 @@ func TestRoutingWithConstraints(t *testing.T) {
 		name: "cheap",
 		models: []llm.ModelInfo{
 			{
-				ID:          "cheap-model",
-				Name:        "Cheap Model",
-				InputCost:   0.1,
-				OutputCost:  0.2,
-				MaxTokens:   128000,
-				Features:    []string{"functions", "streaming"},
+				ID:         "cheap-model",
+				Name:       "Cheap Model",
+				InputCost:  0.1,
+				OutputCost: 0.2,
+				MaxTokens:  128000,
+				Features:   []string{"functions", "streaming"},
 			},
 		},
 	}

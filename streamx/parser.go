@@ -108,9 +108,9 @@ type ClaudeParser struct{}
 // claudeEvent 是 Claude 流式响应的事件结构
 // type 字段标识事件类型，不同类型有不同的数据字段
 type claudeEvent struct {
-	Type         string `json:"type"`
+	Type         string         `json:"type"`
 	Message      *claudeMessage `json:"message,omitempty"`
-	Index        int    `json:"index,omitempty"`
+	Index        int            `json:"index,omitempty"`
 	ContentBlock *struct {
 		Type string `json:"type"`
 		Text string `json:"text,omitempty"`

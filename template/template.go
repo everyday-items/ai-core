@@ -126,10 +126,10 @@ type messageTemplate struct {
 //   - 支持自定义模板函数
 //   - 支持自定义分隔符（避免与前端框架冲突）
 type Template struct {
-	name     string              // 模板名称，用于注册表查找
-	messages []messageTemplate   // 消息模板列表
-	funcs    template.FuncMap    // 自定义模板函数
-	delims   [2]string           // 模板分隔符，默认 {{ 和 }}
+	name     string            // 模板名称，用于注册表查找
+	messages []messageTemplate // 消息模板列表
+	funcs    template.FuncMap  // 自定义模板函数
+	delims   [2]string         // 模板分隔符，默认 {{ 和 }}
 }
 
 // New 创建新的 Prompt 模板

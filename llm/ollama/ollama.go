@@ -246,9 +246,9 @@ func (p *Provider) fetchLocalModels() ([]llm.ModelInfo, error) {
 			Size       int64  `json:"size"`
 			ModifiedAt string `json:"modified_at"`
 			Details    struct {
-				Format         string `json:"format"`
-				Family         string `json:"family"`
-				ParameterSize  string `json:"parameter_size"`
+				Format            string `json:"format"`
+				Family            string `json:"family"`
+				ParameterSize     string `json:"parameter_size"`
 				QuantizationLevel string `json:"quantization_level"`
 			} `json:"details"`
 		} `json:"models"`

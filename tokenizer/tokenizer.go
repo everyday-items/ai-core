@@ -256,50 +256,50 @@ type ContextLimit struct {
 var (
 	// GPT4Limit GPT-4 Turbo 的上下文限制
 	GPT4Limit = ContextLimit{
-		Model:          GPT4,
-		MaxInputTokens: 128000,
+		Model:           GPT4,
+		MaxInputTokens:  128000,
 		MaxOutputTokens: 4096,
 		MaxTotalTokens:  128000,
 	}
 
 	GPT4oLimit = ContextLimit{
-		Model:          GPT4o,
-		MaxInputTokens: 128000,
+		Model:           GPT4o,
+		MaxInputTokens:  128000,
 		MaxOutputTokens: 16384,
 		MaxTotalTokens:  128000,
 	}
 
 	GPT35TurboLimit = ContextLimit{
-		Model:          GPT35Turbo,
-		MaxInputTokens: 16385,
+		Model:           GPT35Turbo,
+		MaxInputTokens:  16385,
 		MaxOutputTokens: 4096,
 		MaxTotalTokens:  16385,
 	}
 
 	Claude3OpusLimit = ContextLimit{
-		Model:          Claude3,
-		MaxInputTokens: 200000,
+		Model:           Claude3,
+		MaxInputTokens:  200000,
 		MaxOutputTokens: 4096,
 		MaxTotalTokens:  200000,
 	}
 
 	Claude3SonnetLimit = ContextLimit{
-		Model:          Claude3,
-		MaxInputTokens: 200000,
+		Model:           Claude3,
+		MaxInputTokens:  200000,
 		MaxOutputTokens: 4096,
 		MaxTotalTokens:  200000,
 	}
 
 	Gemini15ProLimit = ContextLimit{
-		Model:          Gemini,
-		MaxInputTokens: 2097152,
+		Model:           Gemini,
+		MaxInputTokens:  2097152,
 		MaxOutputTokens: 8192,
 		MaxTotalTokens:  2097152,
 	}
 
 	DeepSeekLimit = ContextLimit{
-		Model:          DeepSeek,
-		MaxInputTokens: 64000,
+		Model:           DeepSeek,
+		MaxInputTokens:  64000,
 		MaxOutputTokens: 4096,
 		MaxTotalTokens:  64000,
 	}

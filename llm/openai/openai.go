@@ -60,9 +60,9 @@ func New(apiKey string, opts ...Option) *Provider {
 	}
 
 	p := &Provider{
-		apiKey:     apiKey,
-		baseURL:    defaultBaseURL,
-		model:      defaultModel,
+		apiKey:  apiKey,
+		baseURL: defaultBaseURL,
+		model:   defaultModel,
 		httpClient: &http.Client{
 			// 不设全局 Timeout — 流式请求的超时由调用方 context 控制
 			// http.Client.Timeout 对流式响应会在整个读取期间生效，

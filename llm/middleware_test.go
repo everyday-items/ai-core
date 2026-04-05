@@ -80,9 +80,11 @@ type orderTrackingProvider struct {
 	order *[]string
 }
 
-func (p *orderTrackingProvider) Name() string                                 { return p.next.Name() }
-func (p *orderTrackingProvider) Models() []ModelInfo                          { return p.next.Models() }
-func (p *orderTrackingProvider) CountTokens(messages []Message) (int, error)  { return p.next.CountTokens(messages) }
+func (p *orderTrackingProvider) Name() string        { return p.next.Name() }
+func (p *orderTrackingProvider) Models() []ModelInfo { return p.next.Models() }
+func (p *orderTrackingProvider) CountTokens(messages []Message) (int, error) {
+	return p.next.CountTokens(messages)
+}
 func (p *orderTrackingProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) {
 	return p.next.Stream(ctx, req)
 }
@@ -160,9 +162,9 @@ type failThenSucceedProvider struct {
 	resp      *CompletionResponse
 }
 
-func (p *failThenSucceedProvider) Name() string                                 { return "test" }
-func (p *failThenSucceedProvider) Models() []ModelInfo                          { return nil }
-func (p *failThenSucceedProvider) CountTokens(messages []Message) (int, error)  { return 0, nil }
+func (p *failThenSucceedProvider) Name() string                                { return "test" }
+func (p *failThenSucceedProvider) Models() []ModelInfo                         { return nil }
+func (p *failThenSucceedProvider) CountTokens(messages []Message) (int, error) { return 0, nil }
 func (p *failThenSucceedProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) {
 	return nil, nil
 }
@@ -189,9 +191,9 @@ type slowProvider struct {
 	delay time.Duration
 }
 
-func (p *slowProvider) Name() string                                 { return "slow" }
-func (p *slowProvider) Models() []ModelInfo                          { return nil }
-func (p *slowProvider) CountTokens(messages []Message) (int, error)  { return 0, nil }
+func (p *slowProvider) Name() string                                { return "slow" }
+func (p *slowProvider) Models() []ModelInfo                         { return nil }
+func (p *slowProvider) CountTokens(messages []Message) (int, error) { return 0, nil }
 func (p *slowProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) {
 	return nil, nil
 }

@@ -170,9 +170,9 @@ func TestRouter_LeastCostSelect_ZeroCostProvider(t *testing.T) {
 
 func TestCreateDefaultRouter_FallbackIsNondeterministic(t *testing.T) {
 	providers := map[string]llm.Provider{
-		"openai":   &mockRouterProvider{name: "openai"},
+		"openai":    &mockRouterProvider{name: "openai"},
 		"anthropic": &mockRouterProvider{name: "anthropic"},
-		"deepseek": &mockRouterProvider{name: "deepseek"},
+		"deepseek":  &mockRouterProvider{name: "deepseek"},
 	}
 
 	// 多次创建 router，检查 fallback 是否一致

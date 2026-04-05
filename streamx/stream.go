@@ -129,23 +129,23 @@ type Result struct {
 //  2. 回调模式：通过 OnChunk/OnDone/OnError 设置回调函数
 //  3. 收集模式：通过 Collect() 阻塞等待并收集完整结果
 type Stream struct {
-	reader  *bufio.Reader     // 带缓冲的读取器
-	closer  io.Closer         // 可选的关闭器，用于关闭底层连接
-	format  Format            // 流式响应格式
-	parser  ChunkParser       // 块解析器
-	ctx     context.Context   // 上下文，用于取消操作
+	reader  *bufio.Reader      // 带缓冲的读取器
+	closer  io.Closer          // 可选的关闭器，用于关闭底层连接
+	format  Format             // 流式响应格式
+	parser  ChunkParser        // 块解析器
+	ctx     context.Context    // 上下文，用于取消操作
 	cancel  context.CancelFunc // 取消函数
-	chunks  chan *Chunk       // 块输出通道
-	errors  chan error        // 错误通道
-	done    chan struct{}     // 完成信号通道
-	result  *Result           // 累积的结果
-	mu      sync.Mutex        // 保护并发访问
-	wg      sync.WaitGroup    // 等待 goroutine 退出
-	closed  bool              // 是否已关闭
-	started bool              // 是否已启动处理
-	onChunk func(*Chunk)      // 块处理回调
-	onDone  func(*Result)     // 完成回调
-	onError func(error)       // 错误回调
+	chunks  chan *Chunk        // 块输出通道
+	errors  chan error         // 错误通道
+	done    chan struct{}      // 完成信号通道
+	result  *Result            // 累积的结果
+	mu      sync.Mutex         // 保护并发访问
+	wg      sync.WaitGroup     // 等待 goroutine 退出
+	closed  bool               // 是否已关闭
+	started bool               // 是否已启动处理
+	onChunk func(*Chunk)       // 块处理回调
+	onDone  func(*Result)      // 完成回调
+	onError func(error)        // 错误回调
 }
 
 // ChunkParser 定义块解析器接口

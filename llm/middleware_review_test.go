@@ -73,10 +73,12 @@ type countingProvider struct {
 	callCount *atomic.Int32
 }
 
-func (p *countingProvider) Name() string                                                              { return "counting" }
-func (p *countingProvider) Models() []ModelInfo                                                       { return nil }
-func (p *countingProvider) CountTokens(messages []Message) (int, error)                               { return 0, nil }
-func (p *countingProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) { return nil, nil }
+func (p *countingProvider) Name() string                                { return "counting" }
+func (p *countingProvider) Models() []ModelInfo                         { return nil }
+func (p *countingProvider) CountTokens(messages []Message) (int, error) { return 0, nil }
+func (p *countingProvider) Stream(ctx context.Context, req CompletionRequest) (*streamx.Stream, error) {
+	return nil, nil
+}
 func (p *countingProvider) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
 	p.callCount.Add(1)
 	return p.resp, nil

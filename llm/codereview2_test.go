@@ -276,9 +276,11 @@ type cr2CallCountingWrapper struct {
 	callCount *atomic.Int32
 }
 
-func (w *cr2CallCountingWrapper) Name() string                                { return w.inner.Name() }
-func (w *cr2CallCountingWrapper) Models() []ModelInfo                         { return w.inner.Models() }
-func (w *cr2CallCountingWrapper) CountTokens(messages []Message) (int, error) { return w.inner.CountTokens(messages) }
+func (w *cr2CallCountingWrapper) Name() string        { return w.inner.Name() }
+func (w *cr2CallCountingWrapper) Models() []ModelInfo { return w.inner.Models() }
+func (w *cr2CallCountingWrapper) CountTokens(messages []Message) (int, error) {
+	return w.inner.CountTokens(messages)
+}
 func (w *cr2CallCountingWrapper) Stream(ctx context.Context, req CompletionRequest) (*Stream, error) {
 	return w.inner.Stream(ctx, req)
 }

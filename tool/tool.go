@@ -410,4 +410,3 @@ func ArgsToStruct[T any](args map[string]any) (T, error) {
 	err := mapToStruct(args, &result)
 	return result, err
 }
-

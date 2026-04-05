@@ -102,10 +102,10 @@ type ExtractionResult struct {
 
 // ExtractedEntity 提取的实体
 type ExtractedEntity struct {
-	Name        string            `json:"name"`
-	Type        EntityType        `json:"type"`
-	Description string            `json:"description"`
-	Attributes  map[string]any    `json:"attributes,omitempty"`
+	Name        string         `json:"name"`
+	Type        EntityType     `json:"type"`
+	Description string         `json:"description"`
+	Attributes  map[string]any `json:"attributes,omitempty"`
 }
 
 // ExtractedRelation 提取的关系

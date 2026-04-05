@@ -65,8 +65,8 @@ func (p *Provider) Models() []llm.ModelInfo {
 			Name:        "DeepSeek Chat",
 			Description: "General purpose chat model, good balance of capability and cost",
 			MaxTokens:   64000,
-			InputCost:   0.14,  // per million tokens
-			OutputCost:  0.28,  // per million tokens
+			InputCost:   0.14, // per million tokens
+			OutputCost:  0.28, // per million tokens
 			Features:    []string{llm.FeatureFunctions, llm.FeatureJSON, llm.FeatureStreaming},
 		},
 		{

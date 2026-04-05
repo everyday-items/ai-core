@@ -1052,17 +1052,17 @@ func (r *SmartRouter) GetRoutingStats() SmartRoutingStats {
 	defer r.historyMu.RUnlock()
 
 	stats := SmartRoutingStats{
-		TotalRequests:   len(r.routingHistory),
-		ModelUsage:      make(map[string]int),
-		ProviderUsage:   make(map[string]int),
-		TaskTypeUsage:   make(map[TaskType]int),
-		AverageLatency:  make(map[string]time.Duration),
-		AverageCost:     make(map[string]float64),
-		SuccessRate:     make(map[string]float64),
-		latencySums:     make(map[string]time.Duration),
-		costSums:        make(map[string]float64),
-		successCounts:   make(map[string]int),
-		requestCounts:   make(map[string]int),
+		TotalRequests:  len(r.routingHistory),
+		ModelUsage:     make(map[string]int),
+		ProviderUsage:  make(map[string]int),
+		TaskTypeUsage:  make(map[TaskType]int),
+		AverageLatency: make(map[string]time.Duration),
+		AverageCost:    make(map[string]float64),
+		SuccessRate:    make(map[string]float64),
+		latencySums:    make(map[string]time.Duration),
+		costSums:       make(map[string]float64),
+		successCounts:  make(map[string]int),
+		requestCounts:  make(map[string]int),
 	}
 
 	for _, record := range r.routingHistory {

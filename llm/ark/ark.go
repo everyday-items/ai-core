@@ -44,7 +44,7 @@ type Provider struct {
 	apiKey     string
 	baseURL    string
 	model      string
-	endpointID string       // 火山引擎的端点 ID (可选)
+	endpointID string // 火山引擎的端点 ID (可选)
 	httpClient *http.Client
 }
 

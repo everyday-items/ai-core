@@ -102,7 +102,7 @@ func TestCacheMiddleware_ThundringHerd(t *testing.T) {
 	var mu sync.Mutex
 
 	mock := &mockProvider{
-		name: "mock",
+		name:         "mock",
 		completeResp: &CompletionResponse{Content: "cached"},
 	}
 

@@ -172,8 +172,8 @@ func (s *Store) Add(ctx context.Context, docs []vector.Document) error {
 	points := make([]map[string]any, len(docs))
 	for i, doc := range docs {
 		payload := map[string]any{
-			"content":     doc.Content,
-			"created_at":  doc.CreatedAt.Format(time.RFC3339),
+			"content":      doc.Content,
+			"created_at":   doc.CreatedAt.Format(time.RFC3339),
 			"_original_id": doc.ID, // 存储原始 ID 以便还原
 		}
 		// 合并元数据

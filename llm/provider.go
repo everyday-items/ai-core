@@ -254,11 +254,11 @@ func (m ModelInfo) HasFeature(feature string) bool {
 
 // 常用特性常量
 const (
-	FeatureVision     = "vision"      // 图像理解
-	FeatureFunctions  = "functions"   // 函数调用
-	FeatureJSON       = "json_mode"   // JSON 模式
-	FeatureStreaming  = "streaming"   // 流式响应
-	FeatureEmbedding  = "embedding"   // 向量嵌入
+	FeatureVision    = "vision"    // 图像理解
+	FeatureFunctions = "functions" // 函数调用
+	FeatureJSON      = "json_mode" // JSON 模式
+	FeatureStreaming = "streaming" // 流式响应
+	FeatureEmbedding = "embedding" // 向量嵌入
 )
 
 // ============== 便捷函数 ==============
