@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/hexagon-codes/ai-core/llm"
@@ -297,6 +298,9 @@ func (p *Provider) buildRequestBody(req llm.CompletionRequest, stream bool) ([]b
 		"messages": messages,
 		"stream":   stream,
 	}
+	if think, ok := ollamaThinkFromMetadata(req.Metadata); ok {
+		payload["think"] = think
+	}
 
 	// Ollama 使用 options 嵌套参数
 	options := make(map[string]any)
@@ -332,6 +336,30 @@ func (p *Provider) buildRequestBody(req llm.CompletionRequest, stream bool) ([]b
 	}
 
 	return json.Marshal(payload)
+}
+
+func ollamaThinkFromMetadata(metadata map[string]any) (bool, bool) {
+	if len(metadata) == 0 {
+		return false, false
+	}
+	for _, key := range []string{"thinking", "think"} {
+		value, exists := metadata[key]
+		if !exists {
+			continue
+		}
+		switch v := value.(type) {
+		case bool:
+			return v, true
+		case string:
+			switch strings.ToLower(strings.TrimSpace(v)) {
+			case "on", "true", "1", "yes", "enabled":
+				return true, true
+			case "off", "false", "0", "no", "disabled":
+				return false, true
+			}
+		}
+	}
+	return false, false
 }
 
 // Ollama API 响应结构
