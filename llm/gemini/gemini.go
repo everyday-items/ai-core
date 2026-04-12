@@ -66,7 +66,11 @@ func New(apiKey string, opts ...Option) *Provider {
 		apiKey:     apiKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: &http.Client{Timeout: 120 * time.Second},
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				ResponseHeaderTimeout: 120 * time.Second,
+			},
+		},
 	}
 
 	for _, opt := range opts {
@@ -108,7 +112,10 @@ func (p *Provider) Complete(ctx context.Context, req llm.CompletionRequest) (*ll
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("gemini api error: %s (failed to read body: %v)", resp.Status, readErr)
+		}
 		return nil, fmt.Errorf("gemini api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
@@ -146,8 +153,11 @@ func (p *Provider) Stream(ctx context.Context, req llm.CompletionRequest) (*stre
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("gemini api error: %s (failed to read body: %v)", resp.Status, readErr)
+		}
 		return nil, fmt.Errorf("gemini api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
@@ -418,7 +428,10 @@ func (p *Provider) EmbedWithModel(ctx context.Context, model string, texts []str
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("gemini embed error: %s (failed to read body: %v)", resp.Status, readErr)
+		}
 		return nil, fmt.Errorf("gemini embed error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 

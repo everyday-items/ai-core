@@ -94,7 +94,11 @@ func New(apiKey string, opts ...Option) *Provider {
 		apiKey:     apiKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: &http.Client{Timeout: 120 * time.Second},
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				ResponseHeaderTimeout: 120 * time.Second,
+			},
+		},
 	}
 
 	// 从环境变量读取端点 ID
@@ -139,7 +143,10 @@ func (p *Provider) Complete(ctx context.Context, req llm.CompletionRequest) (*ll
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("ark api error: %s (failed to read body: %v)", resp.Status, readErr)
+		}
 		return nil, fmt.Errorf("ark api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
@@ -175,8 +182,11 @@ func (p *Provider) Stream(ctx context.Context, req llm.CompletionRequest) (*stre
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("ark api error: %s (failed to read body: %v)", resp.Status, readErr)
+		}
 		return nil, fmt.Errorf("ark api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 

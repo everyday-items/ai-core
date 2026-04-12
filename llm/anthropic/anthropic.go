@@ -64,7 +64,14 @@ func New(apiKey string, opts ...Option) *Provider {
 		apiKey:     apiKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: &http.Client{Timeout: 120 * time.Second},
+		httpClient: &http.Client{
+			// 不设全局 Timeout — 流式请求的超时由调用方 context 控制
+			// http.Client.Timeout 对流式响应会在整个读取期间生效，
+			// thinking 模型可能需要数分钟
+			Transport: &http.Transport{
+				ResponseHeaderTimeout: 120 * time.Second, // 仅限制等待首个响应头
+			},
+		},
 	}
 
 	for _, opt := range opts {
@@ -104,7 +111,10 @@ func (p *Provider) Complete(ctx context.Context, req llm.CompletionRequest) (*ll
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("anthropic api error: %s (failed to read body: %v)", resp.Status, readErr)
+		}
 		return nil, fmt.Errorf("anthropic api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
@@ -140,8 +150,11 @@ func (p *Provider) Stream(ctx context.Context, req llm.CompletionRequest) (*stre
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("anthropic api error: %s (failed to read body: %v)", resp.Status, readErr)
+		}
 		return nil, fmt.Errorf("anthropic api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 

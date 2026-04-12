@@ -77,7 +77,10 @@ func (p *Provider) EmbedWithModel(ctx context.Context, model string, texts []str
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("ollama embedding api error: %s (failed to read body: %v)", resp.Status, readErr)
+		}
 		return nil, fmt.Errorf("ollama embedding api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 

@@ -64,7 +64,11 @@ func New(apiKey, secretKey string, opts ...Option) *Provider {
 		secretKey:  secretKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: &http.Client{Timeout: 120 * time.Second},
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				ResponseHeaderTimeout: 120 * time.Second,
+			},
+		},
 	}
 	for _, opt := range opts {
 		opt(p)

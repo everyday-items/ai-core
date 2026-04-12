@@ -2,6 +2,8 @@ package llm
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -523,5 +525,6 @@ func defaultCacheKey(req *CompletionRequest) string {
 		b.Write(rfJSON)
 	}
 
-	return b.String()
+	sum := sha256.Sum256([]byte(b.String()))
+	return hex.EncodeToString(sum[:])
 }
