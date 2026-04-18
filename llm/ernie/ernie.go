@@ -19,6 +19,7 @@ import (
 
 	"github.com/hexagon-codes/ai-core/llm"
 	"github.com/hexagon-codes/ai-core/streamx"
+	"github.com/hexagon-codes/toolkit/net/httpx"
 )
 
 const (
@@ -64,11 +65,7 @@ func New(apiKey, secretKey string, opts ...Option) *Provider {
 		secretKey:  secretKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: &http.Client{
-			Transport: &http.Transport{
-				ResponseHeaderTimeout: 120 * time.Second,
-			},
-		},
+		httpClient: httpx.RawClient(httpx.WithResponseHeaderTimeout(120 * time.Second)),
 	}
 	for _, opt := range opts {
 		opt(p)

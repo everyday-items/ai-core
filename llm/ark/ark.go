@@ -31,6 +31,7 @@ import (
 
 	"github.com/hexagon-codes/ai-core/llm"
 	"github.com/hexagon-codes/ai-core/streamx"
+	"github.com/hexagon-codes/toolkit/net/httpx"
 )
 
 const (
@@ -94,11 +95,7 @@ func New(apiKey string, opts ...Option) *Provider {
 		apiKey:     apiKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: &http.Client{
-			Transport: &http.Transport{
-				ResponseHeaderTimeout: 120 * time.Second,
-			},
-		},
+		httpClient: httpx.RawClient(httpx.WithResponseHeaderTimeout(120 * time.Second)),
 	}
 
 	// 从环境变量读取端点 ID

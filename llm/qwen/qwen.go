@@ -13,6 +13,8 @@ import (
 
 	"github.com/hexagon-codes/ai-core/llm"
 	"github.com/hexagon-codes/ai-core/streamx"
+	"github.com/hexagon-codes/toolkit/net/httpx"
+	"github.com/hexagon-codes/toolkit/util/logger"
 )
 
 const (
@@ -66,11 +68,7 @@ func New(apiKey string, opts ...Option) *Provider {
 		apiKey:     apiKey,
 		baseURL:    defaultBaseURL,
 		model:      defaultModel,
-		httpClient: &http.Client{
-			Transport: &http.Transport{
-				ResponseHeaderTimeout: 120 * time.Second,
-			},
-		},
+		httpClient: httpx.RawClient(httpx.WithResponseHeaderTimeout(120 * time.Second)),
 	}
 
 	for _, opt := range opts {
@@ -105,6 +103,13 @@ func (p *Provider) Complete(ctx context.Context, req llm.CompletionRequest) (*ll
 
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		logger.WarnContext(ctx, "qwen http request failed",
+			logger.Component("qwen"),
+			logger.Action("complete"),
+			logger.String("model", req.Model),
+			logger.String("base_url", p.baseURL),
+			logger.Err(err),
+		)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -112,13 +117,33 @@ func (p *Provider) Complete(ctx context.Context, req llm.CompletionRequest) (*ll
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
+			logger.ErrorContext(ctx, "qwen api error and body read failed",
+				logger.Component("qwen"),
+				logger.Action("complete"),
+				logger.String("model", req.Model),
+				logger.Status(resp.StatusCode),
+				logger.Err(readErr),
+			)
 			return nil, fmt.Errorf("qwen api error: %s (failed to read body: %v)", resp.Status, readErr)
 		}
+		logger.ErrorContext(ctx, "qwen api non-2xx response",
+			logger.Component("qwen"),
+			logger.Action("complete"),
+			logger.String("model", req.Model),
+			logger.Status(resp.StatusCode),
+			logger.String("body", string(bodyBytes)),
+		)
 		return nil, fmt.Errorf("qwen api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
 	var result qwenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		logger.WarnContext(ctx, "qwen response json decode failed",
+			logger.Component("qwen"),
+			logger.Action("complete"),
+			logger.String("model", req.Model),
+			logger.Err(err),
+		)
 		return nil, err
 	}
 
@@ -145,6 +170,13 @@ func (p *Provider) Stream(ctx context.Context, req llm.CompletionRequest) (*stre
 
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		logger.WarnContext(ctx, "qwen stream http request failed",
+			logger.Component("qwen"),
+			logger.Action("stream"),
+			logger.String("model", req.Model),
+			logger.String("base_url", p.baseURL),
+			logger.Err(err),
+		)
 		return nil, err
 	}
 
@@ -152,8 +184,22 @@ func (p *Provider) Stream(ctx context.Context, req llm.CompletionRequest) (*stre
 		bodyBytes, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if readErr != nil {
+			logger.ErrorContext(ctx, "qwen stream api error and body read failed",
+				logger.Component("qwen"),
+				logger.Action("stream"),
+				logger.String("model", req.Model),
+				logger.Status(resp.StatusCode),
+				logger.Err(readErr),
+			)
 			return nil, fmt.Errorf("qwen api error: %s (failed to read body: %v)", resp.Status, readErr)
 		}
+		logger.ErrorContext(ctx, "qwen stream api non-2xx response",
+			logger.Component("qwen"),
+			logger.Action("stream"),
+			logger.String("model", req.Model),
+			logger.Status(resp.StatusCode),
+			logger.String("body", string(bodyBytes)),
+		)
 		return nil, fmt.Errorf("qwen api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 

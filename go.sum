@@ -1,4 +1,4 @@
-github.com/hexagon-codes/toolkit v0.0.5 h1:ariX36+TkFfLmCyi2ZbUunck2fkJ3Q4uEccFDaUjjT8=
-github.com/hexagon-codes/toolkit v0.0.5/go.mod h1:Wd/k/gGVDdPDjZgyt27Jl88naMNr7dEK7NmVE1oUNVA=
+github.com/hexagon-codes/toolkit v0.0.6 h1:6OcEFDrlvduniKG+aObNfEG5uIoIiaUQB5iV7xtkPgU=
+github.com/hexagon-codes/toolkit v0.0.6/go.mod h1:Wd/k/gGVDdPDjZgyt27Jl88naMNr7dEK7NmVE1oUNVA=
 golang.org/x/sync v0.19.0 h1:vV+1eWNmZ5geRlYjzm2adRgW2/mcpevXNg50YZtPCE4=
 golang.org/x/sync v0.19.0/go.mod h1:9KTHXmSnoGruLpwFjVSX0lNNA75CykiMECbovNTZqGI=

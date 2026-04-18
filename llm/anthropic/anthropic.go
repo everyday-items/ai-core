@@ -13,6 +13,7 @@ import (
 
 	"github.com/hexagon-codes/ai-core/llm"
 	"github.com/hexagon-codes/ai-core/streamx"
+	"github.com/hexagon-codes/toolkit/net/httpx"
 )
 
 const (
@@ -61,17 +62,13 @@ func New(apiKey string, opts ...Option) *Provider {
 	}
 
 	p := &Provider{
-		apiKey:     apiKey,
-		baseURL:    defaultBaseURL,
-		model:      defaultModel,
-		httpClient: &http.Client{
-			// 不设全局 Timeout — 流式请求的超时由调用方 context 控制
-			// http.Client.Timeout 对流式响应会在整个读取期间生效，
-			// thinking 模型可能需要数分钟
-			Transport: &http.Transport{
-				ResponseHeaderTimeout: 120 * time.Second, // 仅限制等待首个响应头
-			},
-		},
+		apiKey:  apiKey,
+		baseURL: defaultBaseURL,
+		model:   defaultModel,
+		// 不设全局 Timeout — 流式请求的超时由调用方 context 控制
+		// http.Client.Timeout 对流式响应会在整个读取期间生效，
+		// thinking 模型可能需要数分钟
+		httpClient: httpx.RawClient(httpx.WithResponseHeaderTimeout(120 * time.Second)),
 	}
 
 	for _, opt := range opts {

@@ -18,7 +18,7 @@ Go 语言的 AI 基础能力库，为 [Hexagon](https://github.com/hexagon-codes
 ## 安装
 
 ```bash
-go get github.com/hexagon-codes/ai-core@v0.1.0
+go get github.com/hexagon-codes/ai-core@v0.1.2
 ```
 
 ## 快速开始

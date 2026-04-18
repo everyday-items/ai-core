@@ -18,7 +18,7 @@ A Go library providing core AI capabilities for the [Hexagon](https://github.com
 ## Installation
 
 ```bash
-go get github.com/hexagon-codes/ai-core@v0.1.0
+go get github.com/hexagon-codes/ai-core@v0.1.2
 ```
 
 ## Quick Start

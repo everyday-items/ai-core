@@ -13,6 +13,8 @@ import (
 
 	"github.com/hexagon-codes/ai-core/llm"
 	"github.com/hexagon-codes/ai-core/streamx"
+	"github.com/hexagon-codes/toolkit/net/httpx"
+	"github.com/hexagon-codes/toolkit/util/logger"
 )
 
 const (
@@ -63,14 +65,10 @@ func New(apiKey string, opts ...Option) *Provider {
 		apiKey:  apiKey,
 		baseURL: defaultBaseURL,
 		model:   defaultModel,
-		httpClient: &http.Client{
-			// 不设全局 Timeout — 流式请求的超时由调用方 context 控制
-			// http.Client.Timeout 对流式响应会在整个读取期间生效，
-			// thinking 模型（Qwen3/DeepSeek-R1）可能需要数分钟
-			Transport: &http.Transport{
-				ResponseHeaderTimeout: 120 * time.Second, // 仅限制等待首个响应头
-			},
-		},
+		// 不设全局 Timeout — 流式请求的超时由调用方 context 控制
+		// http.Client.Timeout 对流式响应会在整个读取期间生效，
+		// thinking 模型（Qwen3/DeepSeek-R1）可能需要数分钟
+		httpClient: httpx.RawClient(httpx.WithResponseHeaderTimeout(120 * time.Second)),
 	}
 
 	for _, opt := range opts {
@@ -105,6 +103,13 @@ func (p *Provider) Complete(ctx context.Context, req llm.CompletionRequest) (*ll
 
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		logger.WarnContext(ctx, "openai http request failed",
+			logger.Component("openai"),
+			logger.Action("complete"),
+			logger.String("model", req.Model),
+			logger.String("base_url", p.baseURL),
+			logger.Err(err),
+		)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -112,13 +117,33 @@ func (p *Provider) Complete(ctx context.Context, req llm.CompletionRequest) (*ll
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
+			logger.ErrorContext(ctx, "openai api error and body read failed",
+				logger.Component("openai"),
+				logger.Action("complete"),
+				logger.String("model", req.Model),
+				logger.Status(resp.StatusCode),
+				logger.Err(readErr),
+			)
 			return nil, fmt.Errorf("openai api error: %s (failed to read body: %v)", resp.Status, readErr)
 		}
+		logger.ErrorContext(ctx, "openai api non-2xx response",
+			logger.Component("openai"),
+			logger.Action("complete"),
+			logger.String("model", req.Model),
+			logger.Status(resp.StatusCode),
+			logger.String("body", string(bodyBytes)),
+		)
 		return nil, fmt.Errorf("openai api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
 	var result openAIResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		logger.WarnContext(ctx, "openai response json decode failed",
+			logger.Component("openai"),
+			logger.Action("complete"),
+			logger.String("model", req.Model),
+			logger.Err(err),
+		)
 		return nil, err
 	}
 
@@ -145,6 +170,13 @@ func (p *Provider) Stream(ctx context.Context, req llm.CompletionRequest) (*stre
 
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		logger.WarnContext(ctx, "openai stream http request failed",
+			logger.Component("openai"),
+			logger.Action("stream"),
+			logger.String("model", req.Model),
+			logger.String("base_url", p.baseURL),
+			logger.Err(err),
+		)
 		return nil, err
 	}
 
@@ -152,8 +184,22 @@ func (p *Provider) Stream(ctx context.Context, req llm.CompletionRequest) (*stre
 		bodyBytes, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if readErr != nil {
+			logger.ErrorContext(ctx, "openai stream api error and body read failed",
+				logger.Component("openai"),
+				logger.Action("stream"),
+				logger.String("model", req.Model),
+				logger.Status(resp.StatusCode),
+				logger.Err(readErr),
+			)
 			return nil, fmt.Errorf("openai api error: %s (failed to read body: %v)", resp.Status, readErr)
 		}
+		logger.ErrorContext(ctx, "openai stream api non-2xx response",
+			logger.Component("openai"),
+			logger.Action("stream"),
+			logger.String("model", req.Model),
+			logger.Status(resp.StatusCode),
+			logger.String("body", string(bodyBytes)),
+		)
 		return nil, fmt.Errorf("openai api error: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
